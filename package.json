@@ -1,0 +1,19 @@
+{
+  "name": "paintball",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Zhongy1/paintball.git"
+  },
+  "author": "Zhongyi Chen <zhongyi753@gmail.com>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Zhongy1/paintball/issues"
+  },
+  "homepage": "https://github.com/Zhongy1/paintball#readme"
+}
