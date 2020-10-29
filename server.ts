@@ -31,7 +31,7 @@ io.on('connection', (socket) => {
     socket.on('test-send-1', (data) => {
         console.log(data);
     });
-    socket.emit('init-connection', temp.data);
+    socket.emit('init-connection', temp.map);
 });
 
 
