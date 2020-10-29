@@ -1,0 +1,357 @@
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <style>
+        body {
+            margin: 0px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+        }
+
+        canvas {
+            background-color: black;
+        }
+
+        .dice-toggler-wrapper {
+            position: absolute;
+            top: 0px;
+            left: 0px;
+            width: 60px;
+            height: 30px;
+            background-color: gray;
+            padding: 20px;
+        }
+        .dice-toggler-wrapper>input {
+            display: none;
+        }
+        .dice-toggler-wrapper>.switch {
+            display: block;
+            background-color: rgba(0,0,0,0.2);
+            width: 60px;
+            height: 30px;
+            position: relative;
+            clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+        }
+        .dice-toggler-wrapper>.switch>div {
+            width: 50%;
+            height: 100%;
+            background-color: white;
+            position: absolute;
+            left: 0%;
+            clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+            transition: left 0.3s, transform 0.3s;
+        }
+        .dice-toggler-wrapper>.switch>div::before, .dice-toggler-wrapper>.switch>div::after {
+            content: '';
+            display: block;
+            background-color: red;
+            width: 25%;
+            height: 25%;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: top 0.3s;
+        }
+        .dice-toggler-wrapper>input:checked + .switch>div {
+            left: 50%;
+            transform: rotate(360deg);
+        }
+        .dice-toggler-wrapper>input:checked + .switch>div::before {
+            top: 30%;
+        }
+        .dice-toggler-wrapper>input:checked + .switch>div::after {
+            top: 70%;
+        }
+
+        .logo-wrapper{
+            width: 100px;
+            height: 100px;
+            padding: 20px;
+            background-color: gray;
+            position: absolute;
+            left: 0px;
+            top: 70px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class='dice-toggler-wrapper'>
+        <input id='tester' type='checkbox'>
+        <label for="tester" class='switch'>
+            <div></div>
+        </label>
+    </div>
+    <div class='logo-wrapper'></div>
+    <canvas id='canv' width='600' height='600'></canvas>
+    <script>
+        let xdt = 0;
+        let ydt = 1;
+        let zdt = 0;
+        (function () {
+
+            let canvas = document.getElementById('canv');
+            let ctx = canvas.getContext('2d');
+
+            function clearCanvas() {
+                ctx.fillStyle = 'black';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            function drawShape2d(offset, points) {
+                if (!points || points.length < 2) return;
+                ctx.moveTo(offset.x + points[0].x, offset.y + points[0].y);
+                ctx.beginPath();
+                points.forEach(point => {
+                    ctx.lineTo(offset.x + point.x, offset.y + point.y);
+                });
+                ctx.lineTo(offset.x + points[0].x, offset.y + points[0].y);
+                ctx.stroke();
+            }
+
+            function fillShape2d(offset, points) {
+                if (!points || points.length < 2) return;
+                ctx.moveTo(offset.x + points[0].x, offset.y + points[0].y);
+                ctx.fillStyle = 'gray';
+                ctx.beginPath();
+                points.forEach(point => {
+                    ctx.lineTo(offset.x + point.x, offset.y + point.y);
+                });
+                ctx.lineTo(offset.x + points[0].x, offset.y + points[0].y);
+                ctx.fill();
+            }
+
+            function drawShapePrism(offset, pointsSet) {
+                if (!pointsSet || pointsSet.length < 2) return;
+                ctx.strokeStyle = 'lime';
+                drawShape2d(offset, pointsSet[1]);
+                ctx.strokeStyle = 'blue';
+                drawShape2d(offset, pointsSet[0]);
+                ctx.strokeStyle = 'red';
+                for (let i = 0; i < pointsSet[0].length; i++) {
+                    drawShape2d(offset, [pointsSet[1][i], pointsSet[0][i]]);
+                }
+            }
+
+            function generatePrismFromShape(points, length) {
+                if (!points || points.length < 3) return;
+                let prismPoints = [
+                    new Array(points.length),
+                    new Array(points.length)
+                ];
+                for (let i = 0; i < points.length; i++) {
+                    let point = points[i];
+                    prismPoints[0][i] = { x: 0, y: 0, z: length / 2 };
+                    prismPoints[1][i] = { x: 0, y: 0, z: -length / 2 };
+                    prismPoints[0][i].x = prismPoints[1][i].x = point.x;
+                    prismPoints[0][i].y = prismPoints[1][i].y = point.y;
+                }
+                return prismPoints;
+            }
+
+            function calcAngle(p1, p2) {
+                if (p1 > 0) {
+                    return Math.atan(p2 / p1);
+                }
+                else if (p1 < 0) {
+                    return Math.atan(p2 / p1) + Math.PI;
+                }
+                else if (p2 > 0) {
+                    return Math.PI / 2;
+                }
+                else {
+                    return -Math.PI / 2;
+                }
+            }
+
+            function calcRadius(p1, p2) {
+                return Math.sqrt(Math.pow(p1, 2) + Math.pow(p2, 2));
+            }
+
+            function rotateX(points, degrees) {
+                if (!points) return;
+                let rad = degrees * Math.PI / 180;
+                points.forEach(point => {
+                    // let radius = calcRadius(point.z, point.y);
+                    // let angle = calcAngle(point.z, point.y) + rad;
+                    // point.y = radius * Math.sin(angle);
+                    // point.z = radius * Math.cos(angle);
+                    let y = point.y;
+                    let z = point.z;
+                    point.y = y * Math.cos(rad) + z * Math.sin(rad);
+                    point.z = -y * Math.sin(rad) + z * Math.cos(rad);
+                });
+            }
+
+            function rotateY(points, degrees) {
+                if (!points) return;
+                let rad = degrees * Math.PI / 180;
+                points.forEach(point => {
+                    // let radius = calcRadius(point.x, point.z);
+                    // let angle = calcAngle(point.x, point.z) + rad;
+                    // point.z = radius * Math.sin(angle);
+                    // point.x = radius * Math.cos(angle);
+                    let z = point.z;
+                    let x = point.x;
+                    point.z = z * Math.cos(rad) + x * Math.sin(rad);
+                    point.x = -z * Math.sin(rad) + x * Math.cos(rad);
+                });
+            }
+
+            function rotateZ(points, degrees) {
+                if (!points) return;
+                let rad = degrees * Math.PI / 180;
+                points.forEach(point => {
+                    // let radius = calcRadius(point.y, point.x);
+                    // let angle = calcAngle(point.y, point.x) + rad;
+                    // point.x = radius * Math.sin(angle);
+                    // point.y = radius * Math.cos(angle);
+                    let x = point.x;
+                    let y = point.y;
+                    point.x = x * Math.cos(rad) + y * Math.sin(rad);
+                    point.y = -x * Math.sin(rad) + y * Math.cos(rad);
+                });
+            }
+
+            function rotate2dShape(points, degX, degY, degZ) {
+                if (degX) rotateX(points, degX);
+                if (degY) rotateY(points, degY);
+                if (degZ) rotateZ(points, degZ);
+            }
+
+            function rotate3dShape(pointsSet, degX, degY, degZ) {
+                if (degX) {
+                    pointsSet.forEach(points => {
+                        rotateX(points, degX);
+                    });
+                }
+                if (degY) {
+                    pointsSet.forEach(points => {
+                        rotateY(points, degY);
+                    });
+                }
+                if (degZ) {
+                    pointsSet.forEach(points => {
+                        rotateZ(points, degZ);
+                    });
+                }
+            }
+
+            function isWithinRange2d(center, target, minRange) {
+                return Math.sqrt(Math.pow(target.x - center.x, 2) + Math.pow(target.y - center.y, 2)) <= minRange;
+            }
+
+            // not really reuable functions
+            function generateGrid(center) {
+                let grid = [{ x: 0, y: 0, z: 0 }];
+                for (let i = 0; i < 6; i++) {
+                    let direction = Math.PI * i / 3 + Math.PI / 6;
+                    let distance = shapeL * Math.sqrt(3);
+                    grid.push({ x: distance * Math.cos(direction), y: distance * Math.sin(direction), z: 0 });
+                }
+                return grid;
+            }
+
+            let shapeL = 100;
+            let hexPoints = [{ x: -shapeL, y: 0, z: 0 }, { x: -shapeL / 2, y: shapeL * Math.sqrt(3) / 2, z: 0 }, { x: shapeL / 2, y: shapeL * Math.sqrt(3) / 2, z: 0 }, { x: shapeL, y: 0, z: 0 }, { x: shapeL / 2, y: -shapeL * Math.sqrt(3) / 2, z: 0 }, { x: -shapeL / 2, y: -shapeL * Math.sqrt(3) / 2, z: 0 }];
+            let hexPrismPoints = generatePrismFromShape(hexPoints, shapeL * 8);
+            // let cubePoints = [
+            //     [{x: -shapeL/2, y: shapeL/2, z: -shapeL/2}, {x: shapeL/2, y: shapeL/2, z: -shapeL/2}, {x: shapeL/2, y: -shapeL/2, z: -shapeL/2}, {x: -shapeL/2, y: -shapeL/2, z: -shapeL/2}],
+            //     [{x: -shapeL/2, y: shapeL/2, z: -shapeL/2}, {x: shapeL/2, y: shapeL/2, z: -shapeL/2}, {x: shapeL/2, y: -shapeL/2, z: shapeL/2}, {x: -shapeL/2, y: -shapeL/2, z: shapeL/2}],
+            //     [{x: , y: , z: }, {x: , y: , z: }, {x: , y: , z: }, {x: , y: , z: }],
+            //     [{x: , y: , z: }, {x: , y: , z: }, {x: , y: , z: }, {x: , y: , z: }],
+            //     [{x: , y: , z: }, {x: , y: , z: }, {x: , y: , z: }, {x: , y: , z: }],
+            //     [{x: -shapeL/2, y: shapeL/2, z: shapeL/2}, {x: shapeL/2, y: shapeL/2, z: shapeL/2}, {x: shapeL/2, y: -shapeL/2, z: shapeL/2}, {x: -shapeL/2, y: -shapeL/2, z: shapeL/2}]
+            // ];
+            sqrL = 550;
+            let squarePoints = [{ x: -sqrL / 2, y: sqrL / 2, z: 0 }, { x: sqrL / 2, y: sqrL / 2, z: 0 }, { x: sqrL / 2, y: -sqrL / 2, z: 0 }, { x: -sqrL / 2, y: -sqrL / 2, z: 0 }];
+            let cubePoints = generatePrismFromShape(squarePoints, shapeL * 2);
+
+            let grid = generateGrid();
+            let gridDrawn = JSON.parse(JSON.stringify(grid));
+
+            // let xdt = 2;
+            // let ydt = 3;
+            // let zdt = 1;
+
+            let rotation = -60;
+            let rotationX = -60;
+            let rotationY = -30;
+
+            rotate2dShape(hexPoints, rotationX, 0, 0);
+            rotate2dShape(gridDrawn, rotationX, 0, 0);
+            // rotate2dShape(hexPoints, -rotation);
+            // rotate2dShape(gridDrawn, -rotation);
+
+            ctx.strokeStyle = 'red';
+            gridDrawn.forEach(offset => {
+                drawShape2d({ x: offset.x + 300, y: offset.y + 300 }, hexPoints);
+            });
+            drawShape2d({ x: 300, y: 300 }, squarePoints);
+
+            canvas.addEventListener('mousemove', (e) => {
+                let osX = e.offsetX - 300;
+                let osY = e.offsetY - 300;
+                let u = Math.pow(osX, 2) + Math.pow(osY, 2);
+                let cosAng = 0;
+                let point = { x: osX, y: osY, z: Math.sign(osY) * Math.sqrt(Math.pow(osY / Math.cos(rotationX * Math.PI / 180), 2) - Math.pow(osY, 2)) };
+                // let point = { x: osX, y: osY, z: Math.sqrt(u / Math.pow(Math.cos(???), 2) - u) };
+                rotate2dShape([point], -rotationX, 0);
+                for (let i = 0; i < grid.length; i++) {
+                    if (isWithinRange2d(grid[i], point, shapeL)) {
+                        clearCanvas();
+                        gridDrawn.forEach(offset => {
+                            drawShape2d({ x: offset.x + 300, y: offset.y + 300 }, hexPoints);
+                        });
+                        fillShape2d({ x: gridDrawn[i].x + 300, y: gridDrawn[i].y + 300 }, hexPoints);
+                        drawShape2d({ x: 300, y: 300 }, squarePoints);
+                        return;
+                    }
+                }
+            });
+            // canvas.addEventListener('click', (e) => {
+            //     let osY = e.offsetY - 300;
+            //     console.log(Math.sqrt(Math.pow(osY / Math.cos(rotation * Math.PI / 180), 2) - Math.pow(osY, 2)));
+            // });
+
+            // let int = setInterval(() => {
+            //     clearCanvas();
+            //     ctx.strokeStyle = 'red';
+            //     rotate2dShape(hexPoints, xdt, ydt, zdt);
+            //     drawShape2d({ x: 300, y: 300 }, hexPoints);
+            // }, 16);
+            // let int = setInterval(() => {
+            //     clearCanvas();
+            //     rotate3dShape(hexPrismPoints, xdt, ydt, zdt);
+            //     drawShapePrism({ x: 300, y: 300 }, hexPrismPoints);
+            // }, 16);
+
+            // let int = setInterval(() => {
+            //     clearCanvas();
+            //     rotate2dShape(hexPoints, xdt, ydt, zdt);
+            //     rotate2dShape(squarePoints, xdt, ydt, zdt);
+            //     rotate2dShape(gridDrawn, xdt, ydt, zdt);
+
+            //     gridDrawn.forEach(offset => {
+            //         drawShape2d({ x: offset.x + 300, y: offset.y + 300 }, hexPoints);
+            //     });
+            //     drawShape2d({ x: 300, y: 300 }, squarePoints);
+            // }, 16);
+
+            // document.addEventListener('click', () => {
+            //     clearInterval(int);
+            // });
+        })();
+    </script>
+</body>
+
+</html>
