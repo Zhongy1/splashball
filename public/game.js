@@ -1,20 +1,76 @@
+
+function rotateX(points, degrees) {
+    if (!points) return;
+    let rad = degrees * Math.PI / 180;
+    points.forEach(point => {
+        // let radius = calcRadius(point.z, point.y);
+        // let angle = calcAngle(point.z, point.y) + rad;
+        // point.y = radius * Math.sin(angle);
+        // point.z = radius * Math.cos(angle);
+        let y = point.y;
+        let z = point.z;
+        point.y = y * Math.cos(rad) + z * Math.sin(rad);
+        point.z = -y * Math.sin(rad) + z * Math.cos(rad);
+    });
+}
+
+function rotateXWithoutZ(points, degrees) {
+    if (!points) return;
+    let rad = degrees * Math.PI / 180;
+    points.forEach(point => {
+        let y = point.y;
+        point.y = y * Math.cos(rad);
+    });
+}
+
+function convertDataTo2DArray(hexGrid) {
+    let cellCoords = [];
+    Object.keys(hexGrid).forEach((qIndex) => {
+        Object.keys(hexGrid[qIndex]).forEach((rIndex) => {
+            cellCoords.push(hexGrid[qIndex][rIndex].coord);
+        });
+    });
+    return JSON.parse(JSON.stringify(cellCoords));
+}
+var canvas = document.querySelector('#grid');
+var ctx = canvas.getContext('2d');
+
+let shapeL = 20;
+let hexPoints = [{ x: -shapeL, y: 0, z: 0 }, { x: -shapeL / 2, y: shapeL * Math.sqrt(3) / 2, z: 0 }, { x: shapeL / 2, y: shapeL * Math.sqrt(3) / 2, z: 0 }, { x: shapeL, y: 0, z: 0 }, { x: shapeL / 2, y: -shapeL * Math.sqrt(3) / 2, z: 0 }, { x: -shapeL / 2, y: -shapeL * Math.sqrt(3) / 2, z: 0 }];
+
 const socket = io();
 
 socket.on('connect', () => {
     console.log('connected');
 });
 socket.on('init-connection', (data) => {
-    console.log(data);
-    Object.keys(data.hexGrid).forEach(qIndex => {
-        Object.keys(data.hexGrid[qIndex]).forEach(rIndex => {
-            let coord = data.hexGrid[qIndex][rIndex].coord;
-            drawHexagon({ x: coord.x + 400, y: coord.y + 400 });
-        });
+    let cellCoords = convertDataTo2DArray(data.hexGrid);
+    rotateXWithoutZ(cellCoords, -60);
+    rotateXWithoutZ(hexPoints, -60);
+    // Object.keys(data.hexGrid).forEach(qIndex => {
+    //     Object.keys(data.hexGrid[qIndex]).forEach(rIndex => {
+    //         let coord = data.hexGrid[qIndex][rIndex].coord;
+    //         drawHexagon({ x: coord.x + 400, y: coord.y + 400 });
+    //     });
+    // });
+    ctx.strokeStyle = 'blue';
+    cellCoords.forEach(coord => {
+        drawShape2d({ x: coord.x + 400, y: coord.y + 400 }, hexPoints);
     });
 });
 
-var canvas = document.querySelector('#grid');
-var ctx = canvas.getContext('2d');
+
+function drawShape2d(offset, points) {
+    if (!points || points.length < 2) return;
+    ctx.moveTo(offset.x + points[0].x, offset.y + points[0].y);
+    ctx.beginPath();
+    points.forEach(point => {
+        ctx.lineTo(offset.x + point.x, offset.y + point.y);
+    });
+    ctx.lineTo(offset.x + points[0].x, offset.y + points[0].y);
+    ctx.stroke();
+}
+
 canvas.width = 800;
 canvas.height = 800;
 ctx.fillStyle = '#484848';
@@ -22,7 +78,7 @@ ctx.fillRect(0, 0, canvas.width, canvas.height);
 ctx.beginPath();
 ctx.arc(canvas.width / 2, canvas.height / 2, 3, 0, 2 * Math.PI);
 ctx.stroke();
-var hexSize = 60;
+var hexSize = 20;
 var hexWidth = Math.sqrt(3) * hexSize;
 var hexHeight = 2 * hexSize;
 var PixelCoordinate = (function () {

@@ -25,6 +25,7 @@ export class Map {
         if (rings < 0) rings = 0;
         if (edgeLength < 10) edgeLength = 10;
         this.generateGrid(rings, edgeLength);
+        // console.log(JSON.stringify(this.hexGrid));
     }
 
     private generateGrid(rings: number, edgeLength: number) {
@@ -66,7 +67,7 @@ export class Temp {
     public map: Map;
 
     constructor() {
-        this.map = new Map(3, 60);
+        this.map = new Map(5, 20);
     }
 
     private foo(): void {
