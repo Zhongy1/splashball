@@ -36,21 +36,23 @@ export class Map {
             if (qIndex < 0) {
                 var start = -rings - qIndex;
                 var end = rings;
+                var yStart = cellDiagSF * qIndex + cellVertSF * start;
             }
             else if (qIndex >= 0) {
                 var start = -rings;
                 var end = rings - qIndex;
+                var yStart = cellDiagSF * qIndex + cellVertSF * start;
             }
-            let yStart = cellDiagSF * qIndex - cellVertSF * start;
             let j = 0;
             for (let i = start; i <= end; i++) {
                 hexGrid[qIndex][i] = {
                     coord: {
-                        x: edgeLength * 1.5 * i,
-                        y: yStart + j * cellVertSF
+                        x: edgeLength * 1.5 * qIndex,
+                        y: yStart + cellVertSF * j
                     },
                     color: CellColor.nocolor
                 }
+                j++;
             }
         }
         for (let i = -rings; i <= rings; i++) {
@@ -64,7 +66,7 @@ export class Temp {
     public map: Map;
 
     constructor() {
-        this.map = new Map(3, 50);
+        this.map = new Map(3, 60);
     }
 
     private foo(): void {
