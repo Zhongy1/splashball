@@ -4,16 +4,35 @@
 
 Install the libraries first if you have not:
 ```
-npm install
+$ npm install
 ```
 
-Assuming you have ts-node already installed:
+Bundle the front end
 ```
-ts-node server
+$ npm run frontend.build
 ```
 
-If not, install it globally first:
+Run the server
 ```
-npm install -g ts-node
+$ npm run server
 ```
+
 You should now be able to access localhost:3000 from a browser
+
+## Develop
+
+Install project dependencies
+```
+$ npm install
+```
+
+Start the dev server for the front end
+```
+$ npm run frontend.dev
+```
+
+Run the server
+```
+$ npm run server
+```
+Now you can access the application at localhost:3000 and any changes made to the front end code will be recompiled on save.
