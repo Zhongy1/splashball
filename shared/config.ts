@@ -7,4 +7,6 @@ export const CONFIG = {
 
     PROJ_DIAM: 10, // tbd
     PROJ_SPEED: 1, // pixels per second? tbd
+
+    GAME_INTERVAL: 50, //milliseconds
 }

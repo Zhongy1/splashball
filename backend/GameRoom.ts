@@ -1,10 +1,14 @@
 import { MapProperties, PlayerProperties, ProjectileProperties, CartCoord, AxialCoord, DirectionVector, Color, HexCell } from '../shared/models';
 import { CONFIG } from '../shared/config';
+import { Broker } from './Broker';
 
 export class GameRoom {
     public map: Map;
     public players: { [id: string]: Player };
-    public projectiles: { [id: string]: Player };
+    public projectiles: { [id: string]: Projectile };
+
+    private gameLoop;
+    private broker;
 
     constructor() {
         this.map = new Map();
@@ -12,7 +16,12 @@ export class GameRoom {
         this.projectiles = {};
     }
 
+    public start(broker: Broker) {
+        this.broker = broker;
+        this.gameLoop = setInterval(() => {
 
+        }, CONFIG.GAME_INTERVAL);
+    }
 }
 
 export class Map implements MapProperties {

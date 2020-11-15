@@ -61,7 +61,7 @@ export interface ProjectileProperties {
 export interface SetupData {
     map: MapProperties,
     players: PlayerProperties[],
-    projectiles: ProjectileProperties
+    projectiles: ProjectileProperties[]
 }
 
 export interface MapData {
@@ -74,5 +74,5 @@ export interface MapData {
 
 export interface EntityData {
     players: PlayerProperties[],
-    projectiles: ProjectileProperties
+    projectiles: ProjectileProperties[]
 }
