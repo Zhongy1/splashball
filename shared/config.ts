@@ -3,6 +3,7 @@ export const CONFIG = {
     RING_COUNT: 5,
 
     MOVE_SPEED: 10, //tbd
+    ATTACK_RANGE: 10, //tbd
     ABILITY_COOLDOWN: 1000,
 
     PROJ_DIAM: 10, // tbd

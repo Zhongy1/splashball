@@ -18,6 +18,13 @@ export class Calculator {
         return size * (q * Math.sqrt(3) / 2 + r * Math.sqrt(3));
     }
 
+    static calcCellDistance(t1: AxialCoord, t2: AxialCoord): number {
+        let x = t2.q - t1.q;
+        let z = t2.r - t1.r;
+        let y = -x - z;
+        return Math.max(Math.abs(x), Math.abs(y), Math.abs(z));
+    }
+
     static pixelToFlatHex(point: CartCoord, size: number): AxialCoord {
         return Calculator.axialRound(Calculator.calcQ(point.x, size), Calculator.calcR(point.x, point.y, size));
     }

@@ -15,8 +15,19 @@ export interface DirectionVector { // although identical to CartCoord, this is f
     y: number
 }
 
+export interface Vector { // this is a normal vector
+    x: number,
+    y: number
+}
+
 export interface HexCell {
-    coord?: CartCoord,
+    coord: CartCoord,
+    color: Color
+}
+
+export interface HexCellMod {
+    cellCoord: AxialCoord,
+    coord: CartCoord,
     color: Color
 }
 
@@ -50,12 +61,18 @@ export interface ProjectileProperties {
 
     // positioning
     coord: CartCoord,
+    remOffset: Vector,
 
     // visibile details
     team: Color,
 
     // target
     cellCoord: AxialCoord
+    progress: number
+}
+
+export enum MoveKey {
+    w = 'w', a = 'a', s = 's', d = 'd'
 }
 
 export interface SetupData {
@@ -65,11 +82,7 @@ export interface SetupData {
 }
 
 export interface MapData {
-    cells: {
-        cellCoord: AxialCoord,
-        coord: CartCoord,
-        color: Color
-    }[]
+    cells: HexCellMod[]
 }
 
 export interface EntityData {
