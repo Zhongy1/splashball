@@ -1,8 +1,11 @@
-import { io } from 'socket.io-client';
+import io from 'socket.io-client';
+// import * as io from 'socket.io-client';
 import { FireCommand } from '../backend/GameRoom';
 import { EntityData, MapData, MoveKey, SetupData } from '../shared/models';
+// import { Socket } from 'socket.io-client';
 
 export class Linker {
+    // public socket: SocketIOClient.Socket;
     public socket;
     private cPlayerCB;
 
