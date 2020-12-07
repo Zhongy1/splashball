@@ -51,4 +51,31 @@ export class Calculator {
 
         return { q: rx, r: rz };
     }
+
+    static rotateX(points: CartCoord | CartCoord[], degrees: number): void {
+        if (!points) return;
+        let rad = degrees * Math.PI / 180;
+        if (Array.isArray(points)) {
+            points.forEach(point => {
+                let y = point.y;
+                let z = point.z || 0;
+                point.y = y * Math.cos(rad) + z * Math.sin(rad);
+                if (point.z != null) {
+                    point.z = -y * Math.sin(rad) + z * Math.cos(rad);
+                }
+            });
+        }
+        else {
+            let y = points.y;
+            let z = points.z || 0;
+            points.y = y * Math.cos(rad) + z * Math.sin(rad);
+            if (points.z != undefined) {
+                points.z = -y * Math.sin(rad) + z * Math.cos(rad);
+            }
+        }
+    }
+
+    static calcZofPoint(point: CartCoord, degrees: number): number {
+        return Math.sign(point.y) * Math.sqrt(Math.pow(point.y / Math.cos(degrees * Math.PI / 180), 2) - Math.pow(point.y, 2));
+    }
 }

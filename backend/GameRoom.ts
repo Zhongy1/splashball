@@ -75,10 +75,11 @@ export class GameRoom {
             // if cells are modified, call broker function to send it
             let mods = self.extractCellMods();
             if (mods.length > 0) {
-                // send mods
+                self.broker.handleMapData(mods);
             }
 
             // call broker function to broadcast new entity states
+            self.broker.handleEntityData(self.players, self.projectiles);
         }
         this.gameLoop = setInterval(doGameIteration, CONFIG.GAME_INTERVAL);
     }
@@ -239,7 +240,8 @@ export class Map implements MapProperties {
             }
             else {
                 rStart = coord.r - range;
-                rEnd = coord.r + range - (i - 3);
+                // rEnd = coord.r + range - (i - 2);
+                rEnd = coord.r + range * 2 - i;
             }
             for (let rIndex = rStart; rIndex <= rEnd; rIndex++) {
                 if (this.setCellColor(qIndex, rIndex, color)) {
@@ -408,14 +410,14 @@ export class Player implements PlayerProperties {
         }
 
         // if moving
-        if (this.direction.x != 0 && this.direction.y != 0) {
+        if (this.direction.x != 0 || this.direction.y != 0) {
             let mapRef: Map = this.gameRoom.map;
             let nextPos: CartCoord = this.predictNextPosition();
             let nextAxialPos: AxialCoord = mapRef.identifyCellCoord(nextPos);
             // ensure not going off map
             if (mapRef.checkCellExists(nextAxialPos)) {
                 this.coord = nextPos;
-                if (this.cellCoord.q != nextAxialPos.q && this.cellCoord.r != nextAxialPos.r) {
+                if (this.cellCoord.q != nextAxialPos.q || this.cellCoord.r != nextAxialPos.r) {
                     this.cellCoord = nextAxialPos;
                 }
             }

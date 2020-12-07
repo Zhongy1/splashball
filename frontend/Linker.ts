@@ -2,6 +2,7 @@ import io from 'socket.io-client';
 // import * as io from 'socket.io-client';
 import { FireCommand } from '../backend/GameRoom';
 import { EntityData, MapData, MoveKey, SetupData } from '../shared/models';
+import { GameInstance } from './GameInstance';
 // import { Socket } from 'socket.io-client';
 
 export class Linker {
@@ -9,7 +10,7 @@ export class Linker {
     public socket;
     private cPlayerCB;
 
-    constructor() {
+    constructor(private gameInstance: GameInstance) {
         this.socket = io();
         this.initListeners();
     }
@@ -19,19 +20,19 @@ export class Linker {
             console.log('connected');
         });
         this.socket.on('setup-data', (data: SetupData) => {
-            //handleSetupData(data);
+            this.gameInstance.handleSetupData(data);
         });
 
         this.socket.on('map-data', (data: MapData) => {
-            //handleMapData(data);
+            this.gameInstance.handleMapData(data);
         });
 
         this.socket.on('entity-data', (data: EntityData) => {
-            //handleEntityData(data);
+            this.gameInstance.handleEntityData(data);
         });
 
         this.socket.on('c-player', (playerId: string) => {
-            if(this.cPlayerCB){
+            if (this.cPlayerCB) {
                 this.cPlayerCB(playerId);
                 this.cPlayerCB = null;
             }
@@ -47,7 +48,7 @@ export class Linker {
 
     public spawnPlayer(username: string): Promise<string> {
         let self = this;
-        return new Promise( (resolve, reject) => {
+        return new Promise((resolve, reject) => {
             self.cPlayerCB = (playerId: string) => {
                 resolve(playerId);
             };
@@ -55,15 +56,21 @@ export class Linker {
         });
     }
 
-    public deletePlayer(username: string): any{
+    public deletePlayer(username: string): any {
 
     }
 
     public setKey(playerId: string, key: MoveKey, state: boolean): void {
-
+        if (state) {
+            this.socket.emit(`${key}-dn`, playerId);
+        }
+        else {
+            this.socket.emit(`${key}-up`, playerId);
+        }
     }
 
     public attack(cmd: FireCommand): void {
+        this.socket.emit('attack', cmd);
     }
 
     public checkPlayerState(playerId: string): any {
