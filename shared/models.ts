@@ -7,7 +7,8 @@ export interface AxialCoord {
 
 export interface CartCoord { // coordinate system of html canvas (+x going right, +y going down)
     x: number,
-    y: number
+    y: number,
+    z?: number
 }
 
 export interface DirectionVector { // although identical to CartCoord, this is for describing a unit vector. Magnitude has to equal 1 or 0 if not moving
