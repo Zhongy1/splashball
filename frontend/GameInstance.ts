@@ -275,6 +275,7 @@ export class GameRenderer {
         console.log(this.mapWidth);
         this.mapCanvas.width = this.mapWidth
         this.mapCanvas.height = this.mapWidth;
+        // document.body.appendChild(this.mapCanvas);
 
         this.hexCornerPoints = [{ x: -CONFIG.EDGE_LENGTH, y: 0, z: 0 }, { x: -CONFIG.EDGE_LENGTH / 2, y: CONFIG.EDGE_LENGTH * Math.sqrt(3) / 2, z: 0 }, { x: CONFIG.EDGE_LENGTH / 2, y: CONFIG.EDGE_LENGTH * Math.sqrt(3) / 2, z: 0 }, { x: CONFIG.EDGE_LENGTH, y: 0, z: 0 }, { x: CONFIG.EDGE_LENGTH / 2, y: -CONFIG.EDGE_LENGTH * Math.sqrt(3) / 2, z: 0 }, { x: -CONFIG.EDGE_LENGTH / 2, y: -CONFIG.EDGE_LENGTH * Math.sqrt(3) / 2, z: 0 }];
         Calculator.rotateX(this.hexCornerPoints, CONFIG.MAP_VIEW_ANGLE);
@@ -361,7 +362,21 @@ export class GameRenderer {
                 break;
             }
         }
-        this.mainCtx.fillRect(coordTransformed.x + window.innerWidth / 2 - 10, coordTransformed.y + window.innerHeight / 2 - 10, 20, 20);
+        let center = {
+            x: coordTransformed.x + window.innerWidth / 2,
+            y: coordTransformed.y + window.innerHeight / 2
+        }
+        this.mainCtx.fillRect(center.x - 10, center.y - 10, 20, 20);
+        if (player.health == 2) {
+            this.mainCtx.fillStyle = 'lime';
+            this.mainCtx.fillRect(center.x - 15, center.y - 25, 30, 5);
+        }
+        else {
+            this.mainCtx.fillStyle = 'lime';
+            this.mainCtx.fillRect(center.x - 15, center.y - 25, 30, 5);
+            this.mainCtx.fillStyle = 'red';
+            this.mainCtx.fillRect(center.x, center.y - 25, 15, 5);
+        }
     }
 
     public drawProjectile(projectile: ProjectileProperties) {
@@ -385,7 +400,11 @@ export class GameRenderer {
                 break;
             }
         }
-        this.mainCtx.fillRect(coordTransformed.x + window.innerWidth / 2 - 5, coordTransformed.y + window.innerHeight / 2 - 5, 10, 10);
+        // this.mainCtx.fillRect(coordTransformed.x + window.innerWidth / 2 - 5, coordTransformed.y + window.innerHeight / 2 - 5, 10, 10);
+        this.mainCtx.moveTo(coordTransformed.x + window.innerWidth / 2, coordTransformed.y + window.innerHeight / 2);
+        this.mainCtx.beginPath();
+        this.mainCtx.arc(coordTransformed.x + window.innerWidth / 2, coordTransformed.y + window.innerHeight / 2, 5, 0, 2 * Math.PI);
+        this.mainCtx.fill();
     }
 
     public clearGameCanvas() {
