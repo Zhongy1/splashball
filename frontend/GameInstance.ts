@@ -12,6 +12,7 @@ export class GameInstance {
     public projectiles: ProjectileProperties[];
 
     public playerId: string;
+    public myPlayer: PlayerProperties;
 
     private linker: Linker;
 
@@ -66,13 +67,21 @@ export class GameInstance {
 
     private renderFrame() {
         this.renderer.clearGameCanvas();
-        this.renderer.renderMap();
+        // Revamp later to get O(1) retrieval
+        this.myPlayer = null;
+        for (let i = 0; i < this.players.length; i++) {
+            if (this.playerId == this.players[i].id) {
+                this.myPlayer = this.players[i];
+            }
+        }
+        // revamp ^^^
+        this.renderer.renderMap(this.myPlayer);
         this.players.forEach(player => {
-            this.renderer.drawPlayer(player);
+            this.renderer.drawPlayer(player, this.myPlayer);
         });
         this.projectiles.forEach(projectile => {
             if (projectile.progress == 1) return;
-            this.renderer.drawProjectile(projectile);
+            this.renderer.drawProjectile(projectile, this.myPlayer);
         });
     }
 
@@ -143,7 +152,7 @@ export class GameInstance {
             console.log(username);
             this.linker.spawnPlayer(username)
                 .then(id => {
-                    // console.log('Player ID: ' + id);
+                    console.log('Player ID: ' + id);
                     this.playerId = id;
                 });
             this.clientComponents.entry.classList.add('hidden');
@@ -211,6 +220,17 @@ export class GameInstance {
                 x: e.offsetX - window.innerWidth / 2,
                 y: e.offsetY - window.innerHeight / 2
             }
+            let coordTransformed: CartCoord = {
+                x: this.myPlayer.coord.x,
+                y: this.myPlayer.coord.y
+            }
+            Calculator.rotateX(coordTransformed, -CONFIG.MAP_VIEW_ANGLE);
+            // let selection: CartCoord = {
+            //     x: e.offsetX - window.innerWidth / 2 + this.myPlayer.coord.x,
+            //     y: e.offsetY - window.innerHeight / 2 + this.myPlayer.coord.y
+            // }
+            selection.x += coordTransformed.x;
+            selection.y += coordTransformed.y;
             selection.z = Calculator.calcZofPoint(selection, CONFIG.MAP_VIEW_ANGLE);
             Calculator.rotateX(selection, -CONFIG.MAP_VIEW_ANGLE);
             let axialSelection: AxialCoord = Calculator.pixelToFlatHex(selection, CONFIG.EDGE_LENGTH);
@@ -331,9 +351,14 @@ export class GameRenderer {
         // player = this.gameInstance.players[0];
         let offset;
         if (player) {
+            let coordTransformed: CartCoord = {
+                x: player.coord.x,
+                y: player.coord.y
+            }
+            Calculator.rotateX(coordTransformed, CONFIG.MAP_VIEW_ANGLE);
             offset = {
-                x: (window.innerWidth - this.mapWidth) / 2 - player.coord.x,
-                y: (window.innerHeight - this.mapWidth) / 2 - player.coord.y
+                x: (window.innerWidth - this.mapWidth) / 2 - coordTransformed.x,
+                y: (window.innerHeight - this.mapWidth) / 2 - coordTransformed.y
             }
         }
         else {
@@ -345,10 +370,18 @@ export class GameRenderer {
         this.mainCtx.drawImage(this.mapCanvas, offset.x, offset.y);
     }
 
-    public drawPlayer(player: PlayerProperties) {
-        let coordTransformed: CartCoord = {
-            x: player.coord.x,
-            y: player.coord.y
+    public drawPlayer(player: PlayerProperties, myPlayer?: PlayerProperties) {
+        if (myPlayer) {
+            var coordTransformed: CartCoord = {
+                x: player.coord.x - myPlayer.coord.x,
+                y: player.coord.y - myPlayer.coord.y
+            }
+        }
+        else {
+            var coordTransformed: CartCoord = {
+                x: player.coord.x,
+                y: player.coord.y
+            }
         }
         Calculator.rotateX(coordTransformed, CONFIG.MAP_VIEW_ANGLE);
         // this.mainCtx.fillStyle = 'red';
@@ -366,7 +399,13 @@ export class GameRenderer {
             x: coordTransformed.x + window.innerWidth / 2,
             y: coordTransformed.y + window.innerHeight / 2
         }
+
+        // draw player model
         this.mainCtx.fillRect(center.x - 10, center.y - 10, 20, 20);
+
+        // draw health bar
+        this.mainCtx.fillStyle = 'purple';
+        this.mainCtx.fillRect(center.x - 17, center.y - 27, 34, 9);
         if (player.health == 2) {
             this.mainCtx.fillStyle = 'lime';
             this.mainCtx.fillRect(center.x - 15, center.y - 25, 30, 5);
@@ -377,16 +416,31 @@ export class GameRenderer {
             this.mainCtx.fillStyle = 'red';
             this.mainCtx.fillRect(center.x, center.y - 25, 15, 5);
         }
+
+        // draw username
+        this.mainCtx.font = '18px Arial';
+        this.mainCtx.fillStyle = 'white';
+        let txtWidth = this.mainCtx.measureText(player.name).width;
+        this.mainCtx.fillText(player.name, center.x - txtWidth / 2, center.y + 25);
     }
 
-    public drawProjectile(projectile: ProjectileProperties) {
+    public drawProjectile(projectile: ProjectileProperties, myPlayer?: PlayerProperties) {
         let travDistance = Math.sqrt(Math.pow(projectile.remOffset.x, 2) + Math.pow(projectile.remOffset.y, 2)) / (1 - projectile.progress);
-        let coordTransformed: CartCoord = {
-            x: projectile.coord.x,
-            y: projectile.coord.y,
-            // z: Math.sqrt(Math.pow(200, 2) - Math.pow(200 * 2 * (projectile.progress - 0.5), 2))
-            // z: 1 / 2 * (-CONFIG.GRAVITY) * Math.pow(projectile.progress * travDistance / CONFIG.PROJ_SPEED, 2) - (-CONFIG.GRAVITY * travDistance / 2 / CONFIG.PROJ_SPEED + CONFIG.PROJ_SPEED * 40 / travDistance) * (projectile.progress * travDistance / CONFIG.PROJ_SPEED) + 40
-            z: (-CONFIG.GRAVITY * projectile.progress * travDistance * travDistance / 2 / CONFIG.PROJ_SPEED / CONFIG.PROJ_SPEED - CONFIG.PROJ_LAUNCH_HEIGHT) * (projectile.progress - 1)
+        if (myPlayer) {
+            var coordTransformed: CartCoord = {
+                x: projectile.coord.x - myPlayer.coord.x,
+                y: projectile.coord.y - myPlayer.coord.y,
+                z: (-CONFIG.GRAVITY * projectile.progress * travDistance * travDistance / 2 / CONFIG.PROJ_SPEED / CONFIG.PROJ_SPEED - CONFIG.PROJ_LAUNCH_HEIGHT) * (projectile.progress - 1)
+            }
+        }
+        else {
+            var coordTransformed: CartCoord = {
+                x: projectile.coord.x,
+                y: projectile.coord.y,
+                // z: Math.sqrt(Math.pow(200, 2) - Math.pow(200 * 2 * (projectile.progress - 0.5), 2))
+                // z: 1 / 2 * (-CONFIG.GRAVITY) * Math.pow(projectile.progress * travDistance / CONFIG.PROJ_SPEED, 2) - (-CONFIG.GRAVITY * travDistance / 2 / CONFIG.PROJ_SPEED + CONFIG.PROJ_SPEED * 40 / travDistance) * (projectile.progress * travDistance / CONFIG.PROJ_SPEED) + 40
+                z: (-CONFIG.GRAVITY * projectile.progress * travDistance * travDistance / 2 / CONFIG.PROJ_SPEED / CONFIG.PROJ_SPEED - CONFIG.PROJ_LAUNCH_HEIGHT) * (projectile.progress - 1)
+            }
         }
         Calculator.rotateX(coordTransformed, CONFIG.MAP_VIEW_ANGLE);
 
