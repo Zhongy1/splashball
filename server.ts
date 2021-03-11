@@ -1,7 +1,6 @@
 
 import * as express from 'express';
 import * as http from 'http';
-import * as socketio from 'socket.io';
 import * as serveStatic from 'serve-static';
 import * as path from 'path';
 import * as util from 'util';
@@ -22,6 +21,7 @@ app.use(serveStatic(path.resolve(__dirname, 'public')));
 
 const gameRoom: GameRoom = new GameRoom();
 const broker: Broker = new Broker(httpServer, gameRoom);
+gameRoom.start(broker);
 
 
 httpServer.listen(3000, () => {
