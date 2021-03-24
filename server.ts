@@ -24,7 +24,7 @@ const broker: Broker = new Broker(httpServer, gameRoom);
 gameRoom.start(broker);
 
 
-httpServer.listen(3000, () => {
+httpServer.listen(process.env.PORT || 3000, () => {
     console.log(`Server ready`);
 });
 
