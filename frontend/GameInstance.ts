@@ -146,16 +146,29 @@ export class GameInstance {
     }
 
     private initializeClientComponents() {
+        let self = this;
+        function login(username: string) {
+            console.log(username);
+            self.linker.spawnPlayer(username)
+                .then(id => {
+                    console.log('Player ID: ' + id);
+                    self.playerId = id;
+                });
+            self.clientComponents.entry.classList.add('hidden');
+            self.clientComponents.submit.setAttribute('disabled', '');
+            self.clientComponents.username.setAttribute('disabled', '');
+        }
         this.clientComponents.submit.addEventListener('click', () => {
             if (this.playerId) return;
             let username = this.clientComponents.username.value;
-            console.log(username);
-            this.linker.spawnPlayer(username)
-                .then(id => {
-                    console.log('Player ID: ' + id);
-                    this.playerId = id;
-                });
-            this.clientComponents.entry.classList.add('hidden');
+            login(username);
+        });
+        this.clientComponents.username.addEventListener('keypress', (e) => {
+            if (e.key == 'Enter') {
+                if (this.playerId) return;
+                let username = this.clientComponents.username.value;
+                login(username);
+            }
         });
         let isDownW, isDownA, isDownS, isDownD;
         isDownW = isDownA = isDownS = isDownD = false;
