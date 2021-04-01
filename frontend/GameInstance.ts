@@ -155,6 +155,8 @@ export class GameInstance {
                     self.playerId = id;
                 });
             self.clientComponents.entry.classList.add('hidden');
+            self.clientComponents.submit.setAttribute('disabled', '');
+            self.clientComponents.username.setAttribute('disabled', '');
         }
         this.clientComponents.submit.addEventListener('click', () => {
             if (this.playerId) return;
