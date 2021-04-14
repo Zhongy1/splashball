@@ -539,5 +539,8 @@ export class Projectile implements ProjectileProperties {
                 this.progress = 1;
             }
         }
+        else {
+            this.progress = 1;
+        }
     }
 }
