@@ -18,6 +18,8 @@ export class GameRoom {
     private outgoingCellMods: HexCellMod[];
     private incomingAttackCmds: FireCommand[];
 
+    public teamCurrSizes: { [color: string]: number };
+
     private gameLoop;
     private broker: Broker;
 
@@ -25,6 +27,11 @@ export class GameRoom {
         this.map = new Map({ rings: CONFIG.RING_COUNT, hexEdgeLength: CONFIG.EDGE_LENGTH }, this);
         this.players = {};
         this.projectiles = {};
+
+        this.teamCurrSizes = {};
+        for (let i = 1; i <= Color.blue; i++) {
+            this.teamCurrSizes[i] = 0;
+        }
 
         this.outgoingCellMods = [];
         this.incomingAttackCmds = [];
@@ -89,15 +96,19 @@ export class GameRoom {
             id: uuidv4(),
             cellStartCoord: { q: 0, r: 0 },
             name: username,
-            team: (username.length % 2 == 0) ? Color.red : Color.blue,
+            // team: (username.length % 2 == 0) ? Color.red : Color.blue,
+            team: this.determineTeamColor(),
             speed: CONFIG.MOVE_SPEED
         }, this);
         this.players[player.id] = player;
+        this.teamCurrSizes[player.team]++;
         return player;
     }
 
     public deletePlayer(playerId: string): void {
         if (this.players.hasOwnProperty(playerId)) {
+            let player = this.players[playerId];
+            this.teamCurrSizes[player.team]--;
             delete this.players[playerId];
         }
     }
@@ -166,6 +177,18 @@ export class GameRoom {
 
     public checkPlayerState(playerId: string): boolean {
         return this.players.hasOwnProperty(playerId);
+    }
+
+    private determineTeamColor(): Color {
+        let leastTeam: Color = Color.red;
+        let teamSize = this.teamCurrSizes[Color.red];
+        Object.keys(this.teamCurrSizes).forEach((team) => {
+            if (this.teamCurrSizes[team] < teamSize) {
+                leastTeam = parseInt(team);
+                teamSize = this.teamCurrSizes[team];
+            }
+        });
+        return leastTeam;
     }
 }
 
@@ -398,7 +421,9 @@ export class Player implements PlayerProperties {
             }
             else return;
             if (this.health <= 0) {
+                this.gameRoom.teamCurrSizes[this.team]--;
                 this.team = (this.team == Color.red) ? Color.blue : Color.red;
+                this.gameRoom.teamCurrSizes[this.team]++;
                 this.health = 2;
             }
         }
@@ -538,6 +563,9 @@ export class Projectile implements ProjectileProperties {
                 this.distRemaining = 0;
                 this.progress = 1;
             }
+        }
+        else {
+            this.progress = 1;
         }
     }
 }
