@@ -416,6 +416,20 @@ export class GameRenderer {
         // draw player model
         this.mainCtx.fillRect(center.x - 10, center.y - 10, 20, 20);
 
+        // draw temp arrow
+        this.mainCtx.fillStyle = 'black';
+        this.mainCtx.translate(center.x, center.y);
+        this.mainCtx.rotate(Math.PI / 4);
+        this.mainCtx.fillRect(-10, -2.5, 20, 5);
+        this.mainCtx.moveTo(0, -10);
+        this.mainCtx.lineTo(0 + 10, -10 + 7.5);
+        this.mainCtx.lineTo(0 + 10, -10 + 12.5);
+        this.mainCtx.lineTo(0, -10 + 20);
+        this.mainCtx.closePath();
+        this.mainCtx.fill();
+        this.mainCtx.rotate(-Math.PI / 4);
+        this.mainCtx.translate(-(center.x), -(center.y));
+
         // draw health bar
         this.mainCtx.fillStyle = 'purple';
         this.mainCtx.fillRect(center.x - 17, center.y - 27, 34, 9);
