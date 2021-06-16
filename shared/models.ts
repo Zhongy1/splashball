@@ -36,6 +36,8 @@ export enum Color {
     nocolor, red, blue
 }
 
+export const TeamColors = ['black', 'red', 'blue'];
+
 export interface MapProperties {
     grid: { [index: string]: { [index: string]: HexCell } } //grid[q][r] -> HexCell
 }
@@ -89,4 +91,17 @@ export interface MapData {
 export interface EntityData {
     players: PlayerProperties[],
     projectiles: ProjectileProperties[]
+}
+
+export interface Sprites {
+    'a-t': HTMLImageElement,
+    'a-tr': HTMLImageElement,
+    'a-r': HTMLImageElement,
+    'a-br': HTMLImageElement,
+    'a-b': HTMLImageElement,
+    'a-bl': HTMLImageElement,
+    'a-l': HTMLImageElement,
+    'a-tl': HTMLImageElement,
+    't-red': HTMLImageElement,
+    't-blue': HTMLImageElement
 }
