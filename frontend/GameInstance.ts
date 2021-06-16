@@ -1,7 +1,7 @@
 import { ClientComponents } from ".";
 import { Calculator } from "../shared/Calculator";
 import { CONFIG } from "../shared/config";
-import { AxialCoord, CartCoord, Color, EntityData, HexCell, HexCellMod, MapData, MapProperties, MoveKey, PlayerProperties, ProjectileProperties, SetupData } from "../shared/models";
+import { AxialCoord, CartCoord, Color, EntityData, HexCell, HexCellMod, MapData, MapProperties, MoveKey, PlayerProperties, ProjectileProperties, SetupData, Sprites, TeamColors } from "../shared/models";
 import { Linker } from "./Linker";
 
 
@@ -299,6 +299,8 @@ export class GameRenderer {
 
     private hexCornerPoints;
 
+    private sprites: Sprites;
+
     constructor(private gameCanvas: HTMLCanvasElement, private gameInstance: GameInstance) {
         this.mainCtx = gameCanvas.getContext('2d');
 
@@ -306,7 +308,7 @@ export class GameRenderer {
         this.mapCtx = this.mapCanvas.getContext('2d');
         this.mapWidth = (CONFIG.RING_COUNT * 2 + 1) * CONFIG.EDGE_LENGTH * Math.sqrt(3) + 10;
         console.log(this.mapWidth);
-        this.mapCanvas.width = this.mapWidth
+        this.mapCanvas.width = this.mapWidth;
         this.mapCanvas.height = this.mapWidth;
         // document.body.appendChild(this.mapCanvas);
 
@@ -315,11 +317,38 @@ export class GameRenderer {
 
         this.setCanvasSize();
         window.onresize = this.setCanvasSize.bind(this);
+
+        this.prerenderSprites();
     }
 
     private setCanvasSize() {
         this.gameCanvas.width = window.innerWidth;
         this.gameCanvas.height = window.innerHeight;
+    }
+
+    private prerenderSprites() {
+        this.sprites = {
+            'a-t': new Image(),
+            'a-tr': new Image(),
+            'a-r': new Image(),
+            'a-br': new Image(),
+            'a-b': new Image(),
+            'a-bl': new Image(),
+            'a-l': new Image(),
+            'a-tl': new Image(),
+            't-red': new Image(),
+            't-blue': new Image()
+        }
+        this.sprites['a-t'].src = '/images/arrow-t.png';
+        this.sprites['a-tr'].src = '/images/arrow-tr.png';
+        this.sprites['a-r'].src = '/images/arrow-r.png';
+        this.sprites['a-br'].src = '/images/arrow-br.png';
+        this.sprites['a-b'].src = '/images/arrow-b.png';
+        this.sprites['a-bl'].src = '/images/arrow-bl.png';
+        this.sprites['a-l'].src = '/images/arrow-l.png';
+        this.sprites['a-tl'].src = '/images/arrow-tl.png';
+        this.sprites['t-red'].src = '/images/r_square.png';
+        this.sprites['t-blue'].src = '/images/b_square.png';
     }
 
     public drawCell(cell: HexCell | HexCellMod) {
@@ -414,21 +443,44 @@ export class GameRenderer {
         }
 
         // draw player model
-        this.mainCtx.fillRect(center.x - 10, center.y - 10, 20, 20);
+        // this.mainCtx.fillRect(center.x - 10, center.y - 10, 20, 20);
+        this.mainCtx.drawImage(this.sprites['t-' + TeamColors[player.team]], center.x - 15, center.y - 15, 30, 30);
 
-        // draw temp arrow
-        this.mainCtx.fillStyle = 'black';
-        this.mainCtx.translate(center.x, center.y);
-        this.mainCtx.rotate(Math.PI / 4);
-        this.mainCtx.fillRect(-10, -2.5, 20, 5);
-        this.mainCtx.moveTo(0, -10);
-        this.mainCtx.lineTo(0 + 10, -10 + 7.5);
-        this.mainCtx.lineTo(0 + 10, -10 + 12.5);
-        this.mainCtx.lineTo(0, -10 + 20);
-        this.mainCtx.closePath();
-        this.mainCtx.fill();
-        this.mainCtx.rotate(-Math.PI / 4);
-        this.mainCtx.translate(-(center.x), -(center.y));
+        //draw arrows
+        let dir: string = 'b';
+        let dirVec: CartCoord = {
+            x: player.direction.x,
+            y: player.direction.y
+        }
+        if (dirVec.x == -1) {
+            dir = 'l';
+        }
+        else if (dirVec.x == 1) {
+            dir = 'r';
+        }
+        else if (dirVec.y == -1) {
+            dir = 't';
+        }
+        else if (dirVec.y == 1) {
+            dir = 'b';
+        }
+        else if (Math.sign(dirVec.x) == 1) {
+            if (Math.sign(dirVec.y) == -1) {
+                dir = 'tr';
+            }
+            else if (Math.sign(dirVec.y) == 1) {
+                dir = 'br';
+            }
+        }
+        else if (Math.sign(dirVec.x) == -1) {
+            if (Math.sign(dirVec.y) == -1) {
+                dir = 'tl';
+            }
+            else if (Math.sign(dirVec.y) == 1) {
+                dir = 'bl';
+            }
+        }
+        this.mainCtx.drawImage(this.sprites['a-' + dir], center.x - 20, center.y - 20, 40, 40);
 
         // draw health bar
         this.mainCtx.fillStyle = 'purple';
@@ -446,9 +498,9 @@ export class GameRenderer {
 
         // draw username
         this.mainCtx.font = '18px Arial';
-        this.mainCtx.fillStyle = 'white';
+        this.mainCtx.fillStyle = 'purple';
         let txtWidth = this.mainCtx.measureText(player.name).width;
-        this.mainCtx.fillText(player.name, center.x - txtWidth / 2, center.y + 25);
+        this.mainCtx.fillText(player.name, center.x - txtWidth / 2, center.y + 30);
     }
 
     public drawProjectile(projectile: ProjectileProperties, myPlayer?: PlayerProperties) {
