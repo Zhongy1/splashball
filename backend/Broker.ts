@@ -1,7 +1,7 @@
 import * as socketio from 'socket.io';
 import * as http from 'http';
 import { FireCommand, GameRoom, Player, Projectile } from "./GameRoom";
-import { HexCell, HexCellMod, MapData, MapProperties, MoveKey, PlayerProperties, ProjectileProperties, SetupData } from '../shared/models';
+import { GameState, HexCell, HexCellMod, MapData, MapProperties, MoveKey, PlayerProperties, ProjectileProperties, SetupData } from '../shared/models';
 import { Calculator } from '../shared/Calculator';
 import { CONFIG } from '../shared/config';
 
@@ -98,8 +98,13 @@ export class Broker {
 
             socket.on('c-player', (username: string) => {
                 let player = this.gameRoom.spawnPlayer(username);
-                playerIds.push(player.id);
-                socket.emit('c-player', player.id);
+                if (player) {
+                    playerIds.push(player.id);
+                    socket.emit('c-player', player.id);
+                }
+                else {
+                    socket.emit('c-player', null);
+                }
             });
             socket.on('d-player', (playerId: string) => {
                 this.gameRoom.deletePlayer(playerId);
@@ -113,7 +118,7 @@ export class Broker {
 
     }
 
-    public handleMapData(data: HexCell[]) {
+    public handleMapData(data: HexCell[]): void {
         let cells: HexCellMod[] = [];
         data.forEach((cell) => {
             cells.push({
@@ -128,7 +133,7 @@ export class Broker {
         this.io.emit('map-data', mapData);
     }
 
-    public handleEntityData(players: { [id: string]: Player }, projectiles: { [id: string]: Projectile }) {
+    public handleEntityData(players: { [id: string]: Player }, projectiles: { [id: string]: Projectile }): void {
         let plyrs: PlayerProperties[] = [];
         let projs: ProjectileProperties[] = [];
         Object.keys(players).forEach((id) => {
@@ -159,5 +164,9 @@ export class Broker {
             players: plyrs,
             projectiles: projs
         });
+    }
+
+    public handleGameState(state: GameState): void {
+        this.io.emit('game-state', state);
     }
 }

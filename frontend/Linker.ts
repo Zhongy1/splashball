@@ -32,6 +32,7 @@ export class Linker {
         });
 
         this.socket.on('c-player', (playerId: string) => {
+            // check if playerId is null and if it is, tell user room is full
             if (this.cPlayerCB) {
                 this.cPlayerCB(playerId);
                 this.cPlayerCB = null;

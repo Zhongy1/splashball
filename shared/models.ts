@@ -105,3 +105,22 @@ export interface Sprites {
     't-red': HTMLImageElement,
     't-blue': HTMLImageElement
 }
+
+export enum GameState {
+    Waiting, Starting, Ongoing, Over, Max
+}
+
+export interface GameStateConfig {
+    spawning: SpawnMode,
+    playerState: PlayerState,
+    mapInteraction: boolean,
+    playerInteraction: boolean
+}
+
+export enum SpawnMode {
+    Center, Regional_Random, Max
+}
+
+export enum PlayerState {
+    Vulnerable, Invulnerable, Max
+}
