@@ -1,9 +1,11 @@
 import * as socketio from 'socket.io';
 import * as http from 'http';
-import { FireCommand, GameRoom, Player, Projectile } from "./GameRoom";
+import { FireCommand, GameRoom } from "./GameRoom";
 import { GameState, HexCell, HexCellMod, MapData, MapProperties, MoveKey, PlayerProperties, ProjectileProperties, SetupData } from '../shared/models';
 import { Calculator } from '../shared/Calculator';
 import { CONFIG } from '../shared/config';
+import { Player } from './Player';
+import { Projectile } from './Projectile';
 
 export class Broker {
     private io: socketio.Server;
