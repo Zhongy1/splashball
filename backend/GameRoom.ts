@@ -141,9 +141,11 @@ export class GameRoom {
                     this.currState = GameState.Waiting;
                 }
                 else if (targetState == GameState.Starting) {
+                    this.timer.startTimer();
                     this.stateConfig.spawning = SpawnMode.Center;
                     this.currState = GameState.Starting;
                 }
+                this.resetTeams();
                 break;
         }
         this.broker.handleGameState(this.currState);
@@ -333,11 +335,15 @@ export class GameRoom {
         return leastTeam;
     }
 
-    public informTeamChange(playerId: string, team: Color): void {
-        let player = this.players[playerId];
-        this.teamCurrSizes[player.team]--;
-        player.team = team;
-        this.teamCurrSizes[player.team]++;
+    public informTeamChange(player: Player, team: Color): void;
+    public informTeamChange(playerId: string, team: Color): void;
+    public informTeamChange(playerIdObj: any, team: Color): void {
+        if (typeof playerIdObj === 'string') {
+            playerIdObj = this.players[playerIdObj];
+        }
+        this.teamCurrSizes[playerIdObj.team]--;
+        playerIdObj.team = team;
+        this.teamCurrSizes[playerIdObj.team]++;
     }
 
     private generateSpawnPoint(team: Color): AxialCoord {
@@ -367,19 +373,30 @@ export class GameRoom {
             switch (player.team) {
                 case Color.red: {
                     let q = -(Math.floor(Math.random() * 10 + 1));
-                    let max = CONFIG.RING_COUNT - Math.abs(player.cellCoord.q);
+                    let max = CONFIG.RING_COUNT - Math.abs(q);
                     let r = -Math.round(Math.random() * (max + CONFIG.RING_COUNT)) + CONFIG.RING_COUNT;
                     player.setNewLocation({ q: q, r: r });
                     break;
                 }
                 case Color.blue: {
                     let q = Math.floor(Math.random() * 10 + 1);
-                    let max = CONFIG.RING_COUNT - Math.abs(player.cellCoord.q);
+                    let max = CONFIG.RING_COUNT - Math.abs(q);
                     let r = Math.round(Math.random() * (max + CONFIG.RING_COUNT)) - CONFIG.RING_COUNT;
                     player.setNewLocation({ q: q, r: r });
                     break;
                 }
             }
-        })
+        });
+    }
+
+    private resetTeams(): void {
+        let even = true;
+        Object.keys(this.players).forEach(playerId => {
+            // TODO: Improve in the future
+            let player = this.players[playerId];
+            let team = (even) ? Color.red : Color.blue;
+            this.informTeamChange(player, team);
+            even = !even;
+        });
     }
 }

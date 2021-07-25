@@ -23,7 +23,7 @@ export const CONFIG = {
     MAX_PLAYERS: 20,
     MIN_PLAYERS: 4,
 
-    GAME_START_TIME: 15000,
+    GAME_START_TIME: 5000,
     GAME_OVER_TIME: 5000,
 
 

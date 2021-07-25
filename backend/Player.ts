@@ -202,6 +202,8 @@ export class Player implements PlayerProperties {
     }
 
     public setNewLocation(coord: AxialCoord): void {
+        this.cellCoord.q = coord.q;
+        this.cellCoord.r = coord.r;
         this.coord.x = Calculator.calcX(coord.q, CONFIG.EDGE_LENGTH);
         this.coord.y = Calculator.calcY(coord.q, coord.r, CONFIG.EDGE_LENGTH);
     }
