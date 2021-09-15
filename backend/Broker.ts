@@ -168,7 +168,11 @@ export class Broker {
         });
     }
 
-    public handleGameState(state: GameState): void {
-        this.io.emit('game-state', state);
+    public handleGameState(state: GameState, options: any = {}): void {
+        this.io.emit('game-state', state, options);
+    }
+
+    public handleMapClear(): void {
+        this.io.emit('map-clear');
     }
 }

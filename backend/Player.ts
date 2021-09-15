@@ -1,6 +1,6 @@
 import { Calculator } from "../shared/Calculator";
 import { CONFIG } from "../shared/config";
-import { AxialCoord, CartCoord, Color, DirectionVector, PlayerProperties, ProjectileProperties } from "../shared/models";
+import { AxialCoord, CartCoord, Color, DirectionVector, GameState, PlayerProperties, ProjectileProperties } from "../shared/models";
 import { GameRoom } from "./GameRoom";
 import { Map } from "./Map";
 
@@ -117,7 +117,7 @@ export class Player implements PlayerProperties {
     }
 
     public takeDmg(projectile: ProjectileProperties): void {
-        if (this.team != projectile.team) {
+        if (this.team != projectile.team && this.gameRoom.currState == GameState.Ongoing) {
             if (this.cellCoord.q == projectile.cellCoord.q && this.cellCoord.r == projectile.cellCoord.r) {
                 this.health -= 2;
             }

@@ -1,7 +1,7 @@
 import io from 'socket.io-client';
 // import * as io from 'socket.io-client';
 import { FireCommand } from '../backend/GameRoom';
-import { EntityData, MapData, MoveKey, SetupData } from '../shared/models';
+import { EntityData, GameState, MapData, MoveKey, SetupData } from '../shared/models';
 import { GameInstance } from './GameInstance';
 // import { Socket } from 'socket.io-client';
 
@@ -27,8 +27,16 @@ export class Linker {
             this.gameInstance.handleMapData(data);
         });
 
+        this.socket.on('map-clear', () => {
+            this.gameInstance.handleMapClear();
+        });
+
         this.socket.on('entity-data', (data: EntityData) => {
             this.gameInstance.handleEntityData(data);
+        });
+
+        this.socket.on('game-state', (state: GameState, options: any) => {
+            this.gameInstance.handleGameState(state, options);
         });
 
         this.socket.on('c-player', (playerId: string) => {

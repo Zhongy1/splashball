@@ -1,7 +1,7 @@
 import { ClientComponents } from ".";
 import { Calculator } from "../shared/Calculator";
 import { CONFIG } from "../shared/config";
-import { AxialCoord, CartCoord, Color, EntityData, HexCell, HexCellMod, MapData, MapProperties, MoveKey, PlayerProperties, ProjectileProperties, SetupData, Sprites, TeamColors } from "../shared/models";
+import { AxialCoord, CartCoord, Color, EntityData, GameState, HexCell, HexCellMod, MapData, MapProperties, MoveKey, PlayerProperties, ProjectileProperties, SetupData, Sprites, TeamColors } from "../shared/models";
 import { Linker } from "./Linker";
 
 
@@ -13,6 +13,8 @@ export class GameInstance {
 
     public playerId: string;
     public myPlayer: PlayerProperties;
+
+    private currState: GameState;
 
     private linker: Linker;
 
@@ -26,6 +28,8 @@ export class GameInstance {
         };
         this.players = [];
         this.projectiles = [];
+
+        this.currState = GameState.Waiting;
 
         this.renderer = new GameRenderer(gameCanvas, this);
         // this.setCanvasSize();
@@ -276,6 +280,10 @@ export class GameInstance {
         });
     }
 
+    public handleMapClear() {
+        this.renderer.generateMap(this.mapProps.grid, true);
+    }
+
     public handleEntityData(data: EntityData) {
         // console.log(data);
         this.players = data.players;
@@ -286,6 +294,34 @@ export class GameInstance {
         // this.players.forEach(player => {
         //     this.renderer.drawPlayer(player);
         // });
+    }
+
+    public handleGameState(state: GameState, options: any): void {
+        switch (state) {
+            case GameState.Waiting:
+                //hide timer panel
+                document.getElementById('timer-panel').classList.add('hidden');
+                break;
+            case GameState.Starting:
+                //start timer
+                document.getElementById('timer-panel').children[0].innerHTML = 'Starting...';
+                document.getElementById('timer-panel').children[1].innerHTML = '5';
+                //show timer panel
+                document.getElementById('timer-panel').classList.remove('hidden');
+                break;
+            case GameState.Ongoing:
+                //hide timer panel
+                document.getElementById('timer-panel').classList.add('hidden');
+                break;
+            case GameState.Over:
+                //start timer
+                //change messaage
+                document.getElementById('timer-panel').children[0].innerHTML = `Winner: ${options.winningTeam == 1 ? 'Red' : 'Blue'} Team`;
+                document.getElementById('timer-panel').children[1].innerHTML = '5';
+                //show timer panel
+                document.getElementById('timer-panel').classList.remove('hidden');
+                break;
+        }
     }
 }
 
@@ -351,7 +387,7 @@ export class GameRenderer {
         this.sprites['t-blue'].src = '/images/b_square.png';
     }
 
-    public drawCell(cell: HexCell | HexCellMod) {
+    public drawCell(cell: HexCell | HexCellMod, clear?: boolean) {
         let coordTransformed: CartCoord = {
             x: cell.coord.x,
             y: cell.coord.y
@@ -364,7 +400,11 @@ export class GameRenderer {
         });
         this.mapCtx.lineTo(coordTransformed.x + this.hexCornerPoints[0].x + this.mapWidth / 2, coordTransformed.y + this.hexCornerPoints[0].y + this.mapWidth / 2);
         this.mapCtx.stroke();
-        if (cell.color != Color.nocolor) {
+        if (clear) {
+            this.mapCtx.fillStyle = 'black';
+            this.mapCtx.fill();
+        }
+        else if (cell.color != Color.nocolor) {
             switch (cell.color) {
                 case Color.red: {
                     this.mapCtx.fillStyle = 'pink';
@@ -380,11 +420,16 @@ export class GameRenderer {
         }
     }
 
-    public generateMap(grid: { [index: string]: { [index: string]: HexCell } }) {
+    public generateMap(grid: { [index: string]: { [index: string]: HexCell } }, clearMap?: boolean) {
         this.mapCtx.strokeStyle = 'white';
         Object.keys(grid).forEach(q => {
             Object.keys(grid[q]).forEach(r => {
-                this.drawCell(grid[q][r]);
+                if (clearMap) {
+                    this.drawCell(grid[q][r], clearMap);
+                }
+                else {
+                    this.drawCell(grid[q][r]);
+                }
             });
         });
     }

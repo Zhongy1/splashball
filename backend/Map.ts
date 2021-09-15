@@ -1,4 +1,5 @@
 import { Calculator } from "../shared/Calculator";
+import { CONFIG } from "../shared/config";
 import { AxialCoord, CartCoord, Color, HexCell, HexCellMod, MapProperties } from "../shared/models";
 import { GameRoom } from "./GameRoom";
 
@@ -93,6 +94,10 @@ export class Map implements MapProperties {
             i++;
         }
         return modified;
+    }
+
+    public clearMap(): HexCellMod[] {
+        return this.setColor({ q: 0, r: 0 }, Color.nocolor, CONFIG.RING_COUNT);
     }
 
     public checkCellExists(cellCoord: AxialCoord): boolean {

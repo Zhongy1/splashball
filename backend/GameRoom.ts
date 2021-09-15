@@ -22,7 +22,7 @@ export class GameRoom {
     private outgoingCellMods: HexCellMod[];
     private incomingAttackCmds: FireCommand[];
 
-    private currState: GameState;
+    public currState: GameState;
     private stateConfig: GameStateConfig;
 
     private teamCurrSizes: { [color: string]: number };
@@ -123,6 +123,9 @@ export class GameRoom {
                     this.stateConfig.spawning = SpawnMode.Regional_Random;
                     this.stateConfig.playerState = PlayerState.Invulnerable;
                     this.stateConfig.playerInteraction = true;
+                    this.map.clearMap();
+                    this.broker.handleMapClear();
+                    // clear projectiles
                     this.relocatePlayers();
                     this.currState = GameState.Ongoing;
                 }
@@ -148,7 +151,11 @@ export class GameRoom {
                 this.resetTeams();
                 break;
         }
-        this.broker.handleGameState(this.currState);
+        let options = {};
+        if (this.currState == GameState.Over) {
+            options['winningTeam'] = (this.teamCurrSizes[Color.red] > this.teamCurrSizes[Color.blue]) ? Color.red : Color.blue;
+        }
+        this.broker.handleGameState(this.currState, options);
     }
 
     private checkOneTeamRemaining(): boolean {
@@ -314,6 +321,7 @@ export class GameRoom {
     }
 
     private extractCellMods(): HexCell[] {
+        // convert to actual hexcell eventually. possibly just remove the cellCoord property from HexCellMod to get HexCell
         let mods = this.outgoingCellMods;
         this.outgoingCellMods = [];
         return mods;
@@ -368,6 +376,7 @@ export class GameRoom {
     }
 
     private relocatePlayers(): void {
+        // TODO: Improve this so that it's not identical to generateSpawnPoint
         Object.keys(this.players).forEach(playerId => {
             let player = this.players[playerId];
             switch (player.team) {
@@ -394,6 +403,7 @@ export class GameRoom {
         Object.keys(this.players).forEach(playerId => {
             // TODO: Improve in the future
             let player = this.players[playerId];
+            player.health = 2;
             let team = (even) ? Color.red : Color.blue;
             this.informTeamChange(player, team);
             even = !even;
