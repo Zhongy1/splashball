@@ -154,8 +154,9 @@ export class GameInstance {
 
     private initializeClientComponents() {
         let self = this;
-        function login(username: string) {
+        async function login(username: string): Promise<void> {
             console.log(username);
+            await self.linker.start(`/${self.clientComponents.menu.value}`);
             self.linker.spawnPlayer(username)
                 .then(id => {
                     console.log('Player ID: ' + id);

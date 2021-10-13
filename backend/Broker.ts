@@ -13,7 +13,7 @@ export class Broker {
 
     constructor(public httpServer: http.Server, public gameRoom: GameRoom) {
         this.io = new Server(httpServer, {
-            pingTimeout: 10000
+            path: '/'
         });
         this.initListeners();
     }

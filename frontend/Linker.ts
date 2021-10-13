@@ -1,5 +1,5 @@
 // import io from 'socket.io-client';
-import { io } from 'socket.io-client';
+import { io, Socket } from 'socket.io-client';
 import { FireCommand } from '../backend/GameRoom';
 import { EntityData, GameState, MapData, ActionKey, SetupData } from '../shared/models';
 import { GameInstance } from './GameInstance';
@@ -7,17 +7,42 @@ import { GameInstance } from './GameInstance';
 
 export class Linker {
     // public socket: SocketIOClient.Socket;
-    public socket;
+    public socket: Socket;
+    public path: string;
+    private cIOCB;
     private cPlayerCB;
 
+
     constructor(private gameInstance: GameInstance) {
-        this.socket = io();
-        this.initListeners();
+        this.socket = null;
+        this.path = null;
+        this.cIOCB = null;
+        this.cPlayerCB = null;
+    }
+
+    public start(path: string): Promise<void> {
+        if (this.path == path) return;
+        let self = this;
+        this.path = path;
+        return new Promise((resolve, reject) => {
+            self.cIOCB = () => {
+                self.cIOCB = null;
+                resolve();
+            };
+            this.socket = io({
+                path: path,
+                withCredentials: true
+            });
+            this.initListeners();
+        });
     }
 
     private initListeners() {
         this.socket.on('connect', () => {
-            console.log('connected');
+            console.log(`Connect to ${this.path}`);
+            if (this.cIOCB) {
+                this.cIOCB();
+            }
         });
         this.socket.on('error', (err) => {
             console.log(err);
