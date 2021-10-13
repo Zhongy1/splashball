@@ -1,8 +1,12 @@
 import { v4 as uuidv4 } from 'uuid';
-import { MapProperties, PlayerProperties, ProjectileProperties, CartCoord, AxialCoord, DirectionVector, Color, HexCell, Vector, HexCellMod, MoveKey } from '../shared/models';
+import { MapProperties, PlayerProperties, ProjectileProperties, CartCoord, AxialCoord, DirectionVector, Color, HexCell, Vector, HexCellMod, ActionKey, GameState, GameStateConfig, SpawnMode, PlayerState, TimedAction, TimedActionType } from '../shared/models';
 import { CONFIG } from '../shared/config';
 import { Broker } from './Broker';
 import { Calculator } from '../shared/Calculator';
+import { Timer } from './Timer';
+import { Player } from './Player';
+import { Projectile } from './Projectile';
+import { Map } from './Map';
 
 export interface FireCommand {
     id: string, // playerId
@@ -17,91 +21,291 @@ export class GameRoom {
 
     private outgoingCellMods: HexCellMod[];
     private incomingAttackCmds: FireCommand[];
+    private timedActions: { [key: string]: TimedAction[] };
 
-    public teamCurrSizes: { [color: string]: number };
+    public currState: GameState;
+    private stateConfig: GameStateConfig;
 
-    private gameLoop;
+    private teamCurrSizes: { [color: string]: number };
+    private currPlayers: number;
+    private timer: Timer;
+
     private broker: Broker;
+
+    private previousTick: number;
 
     constructor() {
         this.map = new Map({ rings: CONFIG.RING_COUNT, hexEdgeLength: CONFIG.EDGE_LENGTH }, this);
         this.players = {};
         this.projectiles = {};
 
+        this.currState = GameState.Waiting;
+        this.stateConfig = {
+            spawning: SpawnMode.Center,
+            playerState: PlayerState.Vulnerable,
+            mapInteraction: true,
+            playerInteraction: false
+        }
+
         this.teamCurrSizes = {};
         for (let i = 1; i <= Color.blue; i++) {
             this.teamCurrSizes[i] = 0;
         }
+        this.currPlayers = 0;
+        this.timer = new Timer();
 
         this.outgoingCellMods = [];
         this.incomingAttackCmds = [];
+        this.timedActions = {};
+
+        this.previousTick = 0;
     }
 
     public start(broker: Broker) {
         let self = this;
         this.broker = broker;
-        function doGameIteration() {
-            let projIds = Object.keys(self.projectiles);
-            let playerIds = Object.keys(self.players);
+        this.doGameLoop();
+    }
 
-            // spawn prjectiles
-            let attackCmds = self.extractAttackCmds();
-            attackCmds.forEach(cmd => {
-                self.spawnProjectile(cmd);
-            });
-
-            // update projectiles, then handle if they landed
-            projIds.forEach(id => {
-                if (self.projectiles.hasOwnProperty(id)) {
-                    let projectile = self.projectiles[id];
-                    projectile.updateState();
-                    if (projectile.progress == 1) {
-                        // interact with players
-                        for (let playerId of playerIds) { // looping through all players is inefficient
-                            if (self.players.hasOwnProperty(playerId)) {
-                                self.players[playerId].takeDmg(projectile);
-                            }
-                        }
-                        // interact with map
-                        let modified = self.map.setColor(projectile.cellCoord, projectile.team, 1);
-                        for (let cell of modified) {
-                            self.outgoingCellMods.push(cell);
-                        }
-                        self.deleteProjectile(id);
+    private handleGameState(): void {
+        switch (this.currState) {
+            case GameState.Waiting:
+                if (this.currPlayers >= CONFIG.MIN_PLAYERS) {
+                    this.handleGameTransition(GameState.Starting);
+                    this.handleGameState();
+                }
+                break;
+            case GameState.Starting:
+                if (this.currPlayers < CONFIG.MIN_PLAYERS) {
+                    this.handleGameTransition(GameState.Starting);
+                    this.handleGameState();
+                }
+                else if (this.timer.getElapsed() >= CONFIG.GAME_START_TIME) {
+                    this.handleGameTransition(GameState.Ongoing);
+                    this.handleGameState();
+                }
+                break;
+            case GameState.Ongoing:
+                if (this.checkOneTeamRemaining()) {
+                    this.handleGameTransition(GameState.Over);
+                    this.handleGameState();
+                }
+                break;
+            case GameState.Over:
+                if (this.timer.getElapsed() >= CONFIG.GAME_OVER_TIME) {
+                    if (this.currPlayers < CONFIG.MIN_PLAYERS) {
+                        this.handleGameTransition(GameState.Waiting);
+                        this.handleGameState();
+                    }
+                    else {
+                        this.handleGameTransition(GameState.Starting);
+                        this.handleGameState();
                     }
                 }
-            });
-
-            // update players
-            playerIds.forEach(id => {
-                if (self.players.hasOwnProperty(id)) {
-                    self.players[id].updateState();
-                }
-            });
-
-            // if cells are modified, call broker function to send it
-            let mods = self.extractCellMods();
-            if (mods.length > 0) {
-                self.broker.handleMapData(mods);
-            }
-
-            // call broker function to broadcast new entity states
-            self.broker.handleEntityData(self.players, self.projectiles);
+                break;
         }
-        this.gameLoop = setInterval(doGameIteration, CONFIG.GAME_INTERVAL);
+    }
+
+    private handleGameTransition(targetState: GameState): void {
+        switch (this.currState) {
+            case GameState.Waiting:
+                if (targetState == GameState.Starting) {
+                    this.timer.startTimer();
+                    this.currState = GameState.Starting;
+                }
+                break;
+            case GameState.Starting:
+                if (targetState == GameState.Waiting) {
+                    this.currState = GameState.Waiting;
+                }
+                else if (targetState == GameState.Ongoing) {
+                    this.stateConfig.spawning = SpawnMode.Regional_Random;
+                    this.stateConfig.playerState = PlayerState.Invulnerable;
+                    this.stateConfig.playerInteraction = true;
+                    this.map.clearMap();
+                    this.broker.handleMapClear();
+                    this.clearProjectiles();
+                    this.relocatePlayers();
+                    this.currState = GameState.Ongoing;
+                }
+                break;
+            case GameState.Ongoing:
+                if (targetState == GameState.Over) {
+                    this.timer.startTimer();
+                    this.stateConfig.playerState = PlayerState.Vulnerable;
+                    this.stateConfig.playerInteraction = false;
+                    this.currState = GameState.Over;
+                }
+                break;
+            case GameState.Over:
+                if (targetState == GameState.Waiting) {
+                    this.stateConfig.spawning = SpawnMode.Center;
+                    this.currState = GameState.Waiting;
+                }
+                else if (targetState == GameState.Starting) {
+                    this.timer.startTimer();
+                    this.stateConfig.spawning = SpawnMode.Center;
+                    this.currState = GameState.Starting;
+                }
+                this.resetTeams();
+                break;
+        }
+        let options = {};
+        if (this.currState == GameState.Over) {
+            options['winningTeam'] = (this.teamCurrSizes[Color.red] > this.teamCurrSizes[Color.blue]) ? Color.red : Color.blue;
+        }
+        this.broker.handleGameState(this.currState, options);
+    }
+
+    private checkOneTeamRemaining(): boolean {
+        let teams = Object.keys(this.teamCurrSizes);
+        for (let i = 0; i < teams.length; i++) {
+            if (this.teamCurrSizes[teams[i]] == 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private doGameIteration(): void {
+        let projIds = Object.keys(this.projectiles);
+        let playerIds = Object.keys(this.players);
+
+        // handle game state machine
+        this.handleGameState();
+
+        // spawn prjectiles
+        let attackCmds = this.extractAttackCmds();
+        attackCmds.forEach(cmd => {
+            this.spawnProjectile(cmd);
+        });
+
+        // update projectiles, then handle if they landed
+        projIds.forEach(id => {
+            if (this.projectiles.hasOwnProperty(id)) {
+                let projectile = this.projectiles[id];
+                projectile.updateState();
+                if (projectile.progress == 1) {
+                    // interact with players
+                    if (this.currState == GameState.Ongoing) { // Player interactions only while game is ongoing
+                        for (let playerId of playerIds) { // looping through all players is inefficient
+                            if (this.players.hasOwnProperty(playerId)) {
+                                this.players[playerId].takeDmg(projectile);
+                            }
+                        }
+                    }
+                    // interact with map
+                    let modified = this.map.setColor(projectile.cellCoord, projectile.team, 1);
+                    for (let cell of modified) {
+                        this.outgoingCellMods.push(cell);
+                    }
+                    this.deleteProjectile(id);
+                }
+            }
+        });
+
+        // update players
+        playerIds.forEach(id => {
+            if (this.players.hasOwnProperty(id)) {
+                this.players[id].updateState();
+            }
+        });
+
+        // if cells are modified, call broker function to send it
+        let mods = this.extractCellMods();
+        if (mods.length > 0) {
+            this.broker.handleMapData(mods);
+        }
+
+        // call broker function to broadcast new entity states
+        this.broker.handleEntityData(this.players, this.projectiles);
+    }
+
+    private checkTimedActions(t: number): void {
+        let playerIds = Object.keys(this.timedActions);
+        for (let playerId of playerIds) {
+            if (this.timedActions.hasOwnProperty(playerId)) {
+                let actions = this.timedActions[playerId];
+                let i = 0;
+                while (i < actions.length) {
+                    let a = actions[i];
+                    switch (a.type) {
+                        case TimedActionType.Invulnerability:
+                            if (t - a.startTime > CONFIG.SPAWN_SHIELD_DURATION) {
+                                if (this.players.hasOwnProperty(playerId)) {
+                                    this.players[playerId].invulnerable = false;
+                                }
+                                actions.splice(i, 1);
+                            }
+                            else i++;
+                            break;
+                        case TimedActionType.Paralysis:
+                            if (t - a.startTime > CONFIG.TEAM_CHANGE_PARALYSIS) {
+                                if (this.players.hasOwnProperty(playerId)) {
+                                    this.players[playerId].paralyzed = false;
+                                }
+                                actions.splice(i, 1);
+                            }
+                            else i++;
+                            break;
+                        default:
+                            actions.splice(i, 1);
+                            break;
+                    }
+                }
+                if (actions.length == 0) {
+                    delete this.timedActions[playerId];
+                }
+            }
+        }
+    }
+
+    private doGameLoop(): void {
+        let now = Date.now();
+
+        if (this.previousTick + CONFIG.GAME_INTERVAL <= now) {
+            this.previousTick = now;
+
+            this.checkTimedActions(now);
+            this.doGameIteration();
+        }
+
+        if (Date.now() - this.previousTick < CONFIG.GAME_INTERVAL - 16) {
+            setTimeout(this.doGameLoop.bind(this));
+        } else {
+            setImmediate(this.doGameLoop.bind(this));
+        }
     }
 
     public spawnPlayer(username: string): Player {
+        if (this.currPlayers == CONFIG.MAX_PLAYERS) {
+            return null;
+        }
+        let teamColor = this.determineTeamColor();
         let player = new Player({
             id: uuidv4(),
-            cellStartCoord: { q: 0, r: 0 },
+            cellStartCoord: this.generateSpawnPoint(teamColor), // need to generate right spawn location
             name: username,
             // team: (username.length % 2 == 0) ? Color.red : Color.blue,
-            team: this.determineTeamColor(),
-            speed: CONFIG.MOVE_SPEED
+            team: teamColor,
+            speed: CONFIG.MOVE_SPEED,
+            invulnerable: (this.currState == GameState.Ongoing) ? true : false
         }, this);
         this.players[player.id] = player;
+        if (!this.timedActions.hasOwnProperty(player.id)) {
+            this.timedActions[player.id] = [{
+                type: TimedActionType.Invulnerability,
+                startTime: Date.now()
+            }];
+        }
+        else {
+            this.timedActions[player.id].push({
+                type: TimedActionType.Invulnerability,
+                startTime: Date.now()
+            });
+        }
         this.teamCurrSizes[player.team]++;
+        this.currPlayers++;
         return player;
     }
 
@@ -109,24 +313,28 @@ export class GameRoom {
         if (this.players.hasOwnProperty(playerId)) {
             let player = this.players[playerId];
             this.teamCurrSizes[player.team]--;
+            this.currPlayers--;
             delete this.players[playerId];
         }
     }
 
-    public setKey(playerId: string, key: MoveKey, state: boolean): void {
+    public setKey(playerId: string, key: ActionKey, state: boolean): void {
         if (this.players.hasOwnProperty(playerId)) {
             switch (key) {
-                case MoveKey.w:
+                case ActionKey.w:
                     this.players[playerId].setW(state);
                     break;
-                case MoveKey.a:
+                case ActionKey.a:
                     this.players[playerId].setA(state);
                     break;
-                case MoveKey.s:
+                case ActionKey.s:
                     this.players[playerId].setS(state);
                     break;
-                case MoveKey.d:
+                case ActionKey.d:
                     this.players[playerId].setD(state);
+                    break;
+                case ActionKey.space:
+                    // console.log('backend space key received');
                     break;
             }
         }
@@ -170,6 +378,7 @@ export class GameRoom {
     }
 
     private extractCellMods(): HexCell[] {
+        // convert to actual hexcell eventually. possibly just remove the cellCoord property from HexCellMod to get HexCell
         let mods = this.outgoingCellMods;
         this.outgoingCellMods = [];
         return mods;
@@ -190,382 +399,103 @@ export class GameRoom {
         });
         return leastTeam;
     }
-}
 
-export interface MapOptions {
-    rings: number,
-    hexEdgeLength: number
-}
-export class Map implements MapProperties {
-    public grid: { [index: string]: { [index: string]: HexCell } };
-
-    private rings: number;
-    private hexEdgeLength: number;
-
-    constructor(private options: MapOptions, private gameRoom: GameRoom) {
-        this.rings = Math.abs(options.rings);
-        this.hexEdgeLength = (Math.abs(options.hexEdgeLength) >= 5) ? Math.abs(options.hexEdgeLength) : 5;
-        this.generateGrid(this.rings, this.hexEdgeLength);
-    }
-
-    private generateGrid(rings: number, edgeLength: number) {
-        this.grid = {};
-        let hexGrid = this.grid;
-        function generateCellColumn(qIndex: number) {
-            let cellDiagSF = edgeLength * Math.sqrt(3) * Math.sin(Math.PI / 6);
-            let cellVertSF = edgeLength * Math.sqrt(3);
-            if (qIndex < 0) {
-                var start = -rings - qIndex;
-                var end = rings;
-                var yStart = cellDiagSF * qIndex + cellVertSF * start;
-            }
-            else if (qIndex >= 0) {
-                var start = -rings;
-                var end = rings - qIndex;
-                var yStart = cellDiagSF * qIndex + cellVertSF * start;
-            }
-            let j = 0;
-            for (let i = start; i <= end; i++) {
-                hexGrid[qIndex][i] = {
-                    coord: {
-                        x: edgeLength * 1.5 * qIndex,
-                        y: yStart + cellVertSF * j
-                    },
-                    color: Color.nocolor
-                }
-                j++;
-            }
+    public informTeamChange(player: Player, team: Color): void;
+    public informTeamChange(playerId: string, team: Color): void;
+    public informTeamChange(playerIdObj: any, team: Color): void {
+        if (typeof playerIdObj === 'string') {
+            playerIdObj = this.players[playerIdObj];
         }
-        for (let i = -rings; i <= rings; i++) {
-            this.grid[i] = {};
-            generateCellColumn(i);
+        playerIdObj.paralyzed = true;
+        if (!this.timedActions.hasOwnProperty(playerIdObj.id)) {
+            this.timedActions[playerIdObj.id] = [{
+                type: TimedActionType.Paralysis,
+                startTime: Date.now()
+            }];
         }
-    }
-
-    private setCellColor(q: number, r: number, color: Color): boolean {
-        if (Math.abs(q) <= this.rings && this.grid[q].hasOwnProperty(r) && this.grid[q][r].color != color) {
-            this.grid[q][r].color = color;
-            return true;
-        }
-        return false;
-    }
-    public setColor(coord: AxialCoord, color: Color, range: number = 0): HexCellMod[] {
-        let modified: HexCellMod[] = [];
-        let qStart = coord.q - range;
-        let qEnd = coord.q + range;
-        let i = 0;
-        for (let qIndex = qStart; qIndex <= qEnd; qIndex++) {
-            let rStart;
-            let rEnd;
-            if (qIndex < coord.q) {
-                rStart = coord.r - i;
-                rEnd = coord.r + range;
-            }
-            else {
-                rStart = coord.r - range;
-                // rEnd = coord.r + range - (i - 2);
-                rEnd = coord.r + range * 2 - i;
-            }
-            for (let rIndex = rStart; rIndex <= rEnd; rIndex++) {
-                if (this.setCellColor(qIndex, rIndex, color)) {
-                    let cell = this.grid[qIndex][rIndex];
-                    modified.push({
-                        cellCoord: {
-                            q: qIndex,
-                            r: rIndex
-                        },
-                        coord: cell.coord,
-                        color: cell.color
-                    });
+        else {
+            let tA = this.timedActions[playerIdObj.id];
+            let set = false;
+            for (let i = 0; i < tA.length; i++) {
+                if (tA[i].type == TimedActionType.Paralysis) {
+                    tA[i].startTime = Date.now();
+                    set = true;
+                    break;
                 }
             }
-            i++;
-        }
-        return modified;
-    }
-
-    public checkCellExists(cellCoord: AxialCoord): boolean {
-        return Math.abs(cellCoord.q) <= this.rings && this.grid[cellCoord.q].hasOwnProperty(cellCoord.r);
-    }
-
-    public identifyCellCoord(coord: CartCoord): AxialCoord {
-        return Calculator.pixelToFlatHex(coord, this.hexEdgeLength);
-    }
-
-    public getCellCartCoord(axCoord: AxialCoord): CartCoord {
-        if (this.checkCellExists(axCoord)) {
-            let cellCoord = this.grid[axCoord.q][axCoord.r].coord;
-            let coord: CartCoord = {
-                x: cellCoord.x,
-                y: cellCoord.y
-            }
-            return coord;
-        }
-        return null;
-    }
-}
-
-export interface PlayerOptions {
-    id: string,
-    cellStartCoord: AxialCoord,
-    name: string,
-    team: Color,
-    speed: number
-}
-export class Player implements PlayerProperties {
-    public id: string;
-
-    // positioning
-    public coord: CartCoord;
-    public cellCoord: AxialCoord;
-    public direction: DirectionVector;
-    private speed: number;
-
-    // visibile details
-    public name: string;
-    public health: number;
-    public team: Color;
-
-    // cooldowns
-    public lastShot: number;
-
-    private w: boolean;
-    private a: boolean;
-    private s: boolean;
-    private d: boolean;
-    private directionChanged: boolean;
-
-    constructor(private options: PlayerOptions, private gameRoom: GameRoom) {
-        this.id = options.id;
-        this.cellCoord = options.cellStartCoord;
-        this.coord = { x: Calculator.calcX(this.cellCoord.q, CONFIG.EDGE_LENGTH), y: Calculator.calcY(this.cellCoord.q, this.cellCoord.r, CONFIG.EDGE_LENGTH) };
-        this.direction = { x: 0, y: 0 };
-        this.speed = options.speed;
-        this.name = options.name;
-        this.health = 2;
-        this.team = options.team;
-        this.lastShot = 0;
-
-        this.w = this.a = this.s = this.d = this.directionChanged = false;
-    }
-
-    public setW(state: boolean): void {
-        if (state) {
-            this.s = false;
-            this.w = true;
-        }
-        else if (this.w) {
-            this.w = false;
-        }
-        else return;
-        if (!this.directionChanged) {
-            this.directionChanged = true;
-        }
-    }
-    public setA(state: boolean): void {
-        if (state) {
-            this.d = false;
-            this.a = true;
-        }
-        else if (this.a) {
-            this.a = false;
-        }
-        else return;
-        if (!this.directionChanged) {
-            this.directionChanged = true;
-        }
-    }
-    public setS(state: boolean): void {
-        if (state) {
-            this.w = false;
-            this.s = true;
-        }
-        else if (this.s) {
-            this.s = false;
-        }
-        else return;
-        if (!this.directionChanged) {
-            this.directionChanged = true;
-        }
-    }
-    public setD(state: boolean): void {
-        if (state) {
-            this.a = false;
-            this.d = true;
-        }
-        else if (this.d) {
-            this.d = false;
-        }
-        else return;
-        if (!this.directionChanged) {
-            this.directionChanged = true;
-        }
-    }
-    public fire(): boolean {
-        let time = Date.now();
-        if (time >= this.lastShot + CONFIG.ABILITY_COOLDOWN) {
-            this.lastShot = time;
-            return true;
-        }
-        else {
-            return false;
-        }
-    }
-    public takeDmg(projectile: ProjectileProperties): void {
-        if (this.team != projectile.team) {
-            if (this.cellCoord.q == projectile.cellCoord.q && this.cellCoord.r == projectile.cellCoord.r) {
-                this.health -= 2;
-            }
-            else if (Calculator.calcCellDistance(this.cellCoord, projectile.cellCoord) == 1) {
-                this.health--;
-            }
-            else return;
-            if (this.health <= 0) {
-                this.gameRoom.teamCurrSizes[this.team]--;
-                this.team = (this.team == Color.red) ? Color.blue : Color.red;
-                this.gameRoom.teamCurrSizes[this.team]++;
-                this.health = 2;
+            if (!set) {
+                this.timedActions[playerIdObj.id].push({
+                    type: TimedActionType.Paralysis,
+                    startTime: Date.now()
+                });
             }
         }
+        this.teamCurrSizes[playerIdObj.team]--;
+        playerIdObj.team = team;
+        this.teamCurrSizes[playerIdObj.team]++;
     }
-    public updateState(): void {
-        // if wasd changed
-        if (this.directionChanged) {
-            this.setDirection();
-        }
 
-        // if moving
-        if (this.direction.x != 0 || this.direction.y != 0) {
-            let mapRef: Map = this.gameRoom.map;
-            let nextPos: CartCoord = this.predictNextPosition();
-            let nextAxialPos: AxialCoord = mapRef.identifyCellCoord(nextPos);
-            // ensure not going off map
-            if (mapRef.checkCellExists(nextAxialPos)) {
-                this.coord = nextPos;
-                if (this.cellCoord.q != nextAxialPos.q || this.cellCoord.r != nextAxialPos.r) {
-                    this.cellCoord = nextAxialPos;
+    private generateSpawnPoint(team: Color): AxialCoord {
+        switch (this.currState) {
+            case GameState.Waiting:
+            case GameState.Starting:
+                return { q: 0, r: 0 };
+            case GameState.Ongoing:
+            case GameState.Over:
+                if (team == Color.red) {
+                    let q = -(Math.floor(Math.random() * 10 + 1));
+                    let max = CONFIG.RING_COUNT - Math.abs(q);
+                    return { q: q, r: -Math.round(Math.random() * (max + CONFIG.RING_COUNT)) + CONFIG.RING_COUNT }
+                }
+                else if (team == Color.blue) {
+                    let q = Math.floor(Math.random() * 10 + 1);
+                    let max = CONFIG.RING_COUNT - Math.abs(q);
+                    return { q: q, r: Math.round(Math.random() * (max + CONFIG.RING_COUNT)) - CONFIG.RING_COUNT }
+                }
+                break;
+        }
+    }
+
+    private relocatePlayers(): void {
+        // TODO: Improve this so that it's not identical to generateSpawnPoint
+        Object.keys(this.players).forEach(playerId => {
+            let player = this.players[playerId];
+            switch (player.team) {
+                case Color.red: {
+                    let q = -(Math.floor(Math.random() * 10 + 1));
+                    let max = CONFIG.RING_COUNT - Math.abs(q);
+                    let r = -Math.round(Math.random() * (max + CONFIG.RING_COUNT)) + CONFIG.RING_COUNT;
+                    player.setNewLocation({ q: q, r: r });
+                    break;
+                }
+                case Color.blue: {
+                    let q = Math.floor(Math.random() * 10 + 1);
+                    let max = CONFIG.RING_COUNT - Math.abs(q);
+                    let r = Math.round(Math.random() * (max + CONFIG.RING_COUNT)) - CONFIG.RING_COUNT;
+                    player.setNewLocation({ q: q, r: r });
+                    break;
                 }
             }
-        }
+        });
     }
 
-    private setDirection(): void {
-        if (this.w) {
-            this.direction.y = -1;
-        }
-        else if (this.s) {
-            this.direction.y = 1;
-        }
-        else {
-            this.direction.y = 0;
-        }
-        if (this.a) {
-            if (this.direction.y != 0) {
-                this.direction.y *= Math.SQRT1_2;
-                this.direction.x = -Math.SQRT1_2;
+    private clearProjectiles(): void {
+        Object.keys(this.projectiles).forEach((projId) => {
+            if (this.projectiles.hasOwnProperty(projId)) {
+                delete this.projectiles[projId];
             }
-            else {
-                this.direction.x = -1;
-            }
-        }
-        else if (this.d) {
-            if (this.direction.y != 0) {
-                this.direction.y *= Math.SQRT1_2;
-                this.direction.x = Math.SQRT1_2;
-            }
-            else {
-                this.direction.x = 1;
-            }
-        }
-        else {
-            this.direction.x = 0;
-        }
-        this.directionChanged = false;
+        });
     }
 
-    private predictNextPosition(): CartCoord {
-        let pos: CartCoord = {
-            x: this.coord.x,
-            y: this.coord.y
-        }
-        if (this.direction.x != 0) {
-            pos.x += this.direction.x * this.speed / GameRoom.updateRate;
-        }
-        if (this.direction.y != 0) {
-            pos.y += this.direction.y * this.speed / GameRoom.updateRate;
-        }
-        return pos;
-    }
-}
-
-export interface ProjectileOptions {
-    id: string,
-    startCoord: CartCoord,
-    speed: number,
-    team: Color,
-    targetCellCoord: AxialCoord
-}
-export class Projectile implements ProjectileProperties {
-    public id: string;
-
-    // positioning
-    public coord: CartCoord;
-    public remOffset: Vector;
-    private distRemaining: number;
-    private speed: number;
-    private travDistance: number;
-
-    // visibile details
-    public team: Color;
-
-    // target
-    public cellCoord: AxialCoord;
-    public progress: number;
-
-    constructor(private options: ProjectileOptions, private gameRoom: GameRoom) {
-        this.id = options.id;
-        this.coord = options.startCoord;
-        this.speed = options.speed;
-        this.team = options.team;
-        this.cellCoord = options.targetCellCoord;
-        this.progress = 0;
-        this.calcInitOffset();
-    }
-
-    private calcInitOffset(): void {
-        let cellCartCoord: CartCoord = this.gameRoom.map.getCellCartCoord(this.cellCoord);
-        this.remOffset = {
-            x: cellCartCoord.x - this.coord.x,
-            y: cellCartCoord.y - this.coord.y
-        };
-        this.travDistance = Math.sqrt(Math.pow(this.remOffset.x, 2) + Math.pow(this.remOffset.y, 2));
-        this.distRemaining = this.travDistance;
-    }
-
-    public updateState(): void {
-        if (this.distRemaining != 0) {
-            let d = this.speed / GameRoom.updateRate;
-            if (this.distRemaining > d) {
-                let dx = this.remOffset.x * d / this.distRemaining; // unit vector this.remOffset/this.distRemaining
-                let dy = this.remOffset.y * d / this.distRemaining;
-
-                this.coord.x += dx;
-                this.coord.y += dy;
-                this.remOffset.x -= dx;
-                this.remOffset.y -= dy;
-
-                this.distRemaining = Math.sqrt(Math.pow(this.remOffset.x, 2) + Math.pow(this.remOffset.y, 2));
-                this.progress = (this.travDistance - this.distRemaining) / this.travDistance;
-            }
-            else {
-                this.coord = this.gameRoom.map.getCellCartCoord(this.cellCoord);
-                this.remOffset = { x: 0, y: 0 };
-                this.distRemaining = 0;
-                this.progress = 1;
-            }
-        }
-        else {
-            this.progress = 1;
-        }
+    private resetTeams(): void {
+        let even = true;
+        Object.keys(this.players).forEach(playerId => {
+            // TODO: Improve in the future
+            let player = this.players[playerId];
+            player.health = 2;
+            let team = (even) ? Color.red : Color.blue;
+            this.informTeamChange(player, team);
+            even = !even;
+        });
     }
 }

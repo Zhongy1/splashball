@@ -1,15 +1,18 @@
-import * as socketio from 'socket.io';
+import { Server } from 'socket.io';
 import * as http from 'http';
-import { FireCommand, GameRoom, Player, Projectile } from "./GameRoom";
-import { HexCell, HexCellMod, MapData, MapProperties, MoveKey, PlayerProperties, ProjectileProperties, SetupData } from '../shared/models';
+import * as _ from 'lodash';
+import { FireCommand, GameRoom } from "./GameRoom";
+import { GameState, HexCell, HexCellMod, MapData, MapProperties, ActionKey, PlayerProperties, ProjectileProperties, SetupData } from '../shared/models';
 import { Calculator } from '../shared/Calculator';
 import { CONFIG } from '../shared/config';
+import { Player } from './Player';
+import { Projectile } from './Projectile';
 
 export class Broker {
-    private io: socketio.Server;
+    private io: Server;
 
     constructor(public httpServer: http.Server, public gameRoom: GameRoom) {
-        this.io = socketio(httpServer, {
+        this.io = new Server(httpServer, {
             pingTimeout: 10000
         });
         this.initListeners();
@@ -34,7 +37,9 @@ export class Broker {
                 name: player.name,
                 health: player.health,
                 team: player.team,
-                lastShot: player.lastShot
+                lastShot: player.lastShot,
+                invulnerable: player.invulnerable,
+                paralyzed: player.paralyzed
             });
         });
         Object.keys(this.gameRoom.projectiles).forEach(id => {
@@ -68,28 +73,34 @@ export class Broker {
             });
 
             socket.on('w-up', (playerId: string) => {
-                this.gameRoom.setKey(playerId, MoveKey.w, false);
+                this.gameRoom.setKey(playerId, ActionKey.w, false);
             });
             socket.on('w-dn', (playerId: string) => {
-                this.gameRoom.setKey(playerId, MoveKey.w, true);
+                this.gameRoom.setKey(playerId, ActionKey.w, true);
             });
             socket.on('a-up', (playerId: string) => {
-                this.gameRoom.setKey(playerId, MoveKey.a, false);
+                this.gameRoom.setKey(playerId, ActionKey.a, false);
             });
             socket.on('a-dn', (playerId: string) => {
-                this.gameRoom.setKey(playerId, MoveKey.a, true);
+                this.gameRoom.setKey(playerId, ActionKey.a, true);
             });
             socket.on('s-up', (playerId: string) => {
-                this.gameRoom.setKey(playerId, MoveKey.s, false);
+                this.gameRoom.setKey(playerId, ActionKey.s, false);
             });
             socket.on('s-dn', (playerId: string) => {
-                this.gameRoom.setKey(playerId, MoveKey.s, true);
+                this.gameRoom.setKey(playerId, ActionKey.s, true);
             });
             socket.on('d-up', (playerId: string) => {
-                this.gameRoom.setKey(playerId, MoveKey.d, false);
+                this.gameRoom.setKey(playerId, ActionKey.d, false);
             });
             socket.on('d-dn', (playerId: string) => {
-                this.gameRoom.setKey(playerId, MoveKey.d, true);
+                this.gameRoom.setKey(playerId, ActionKey.d, true);
+            });
+            socket.on(' -up', (playerId: string) => {
+                this.gameRoom.setKey(playerId, ActionKey.space, false);
+            });
+            socket.on(' -dn', (playerId: string) => {
+                this.gameRoom.setKey(playerId, ActionKey.space, true);
             });
 
             socket.on('attack', (data: FireCommand) => {
@@ -98,8 +109,13 @@ export class Broker {
 
             socket.on('c-player', (username: string) => {
                 let player = this.gameRoom.spawnPlayer(username);
-                playerIds.push(player.id);
-                socket.emit('c-player', player.id);
+                if (player) {
+                    playerIds.push(player.id);
+                    socket.emit('c-player', player.id);
+                }
+                else {
+                    socket.emit('c-player', null);
+                }
             });
             socket.on('d-player', (playerId: string) => {
                 this.gameRoom.deletePlayer(playerId);
@@ -113,7 +129,7 @@ export class Broker {
 
     }
 
-    public handleMapData(data: HexCell[]) {
+    public handleMapData(data: HexCell[]): void {
         let cells: HexCellMod[] = [];
         data.forEach((cell) => {
             cells.push({
@@ -128,7 +144,7 @@ export class Broker {
         this.io.emit('map-data', mapData);
     }
 
-    public handleEntityData(players: { [id: string]: Player }, projectiles: { [id: string]: Projectile }) {
+    public handleEntityData(players: { [id: string]: Player }, projectiles: { [id: string]: Projectile }): void {
         let plyrs: PlayerProperties[] = [];
         let projs: ProjectileProperties[] = [];
         Object.keys(players).forEach((id) => {
@@ -141,7 +157,9 @@ export class Broker {
                 name: player.name,
                 health: player.health,
                 team: player.team,
-                lastShot: player.lastShot
+                lastShot: player.lastShot,
+                invulnerable: player.invulnerable,
+                paralyzed: player.paralyzed
             });
         });
         Object.keys(projectiles).forEach((id) => {
@@ -159,5 +177,13 @@ export class Broker {
             players: plyrs,
             projectiles: projs
         });
+    }
+
+    public handleGameState(state: GameState, options: any = {}): void {
+        this.io.emit('game-state', state, options);
+    }
+
+    public handleMapClear(): void {
+        this.io.emit('map-clear');
     }
 }

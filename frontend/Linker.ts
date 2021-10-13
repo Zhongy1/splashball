@@ -1,7 +1,7 @@
-import io from 'socket.io-client';
-// import * as io from 'socket.io-client';
+// import io from 'socket.io-client';
+import { io } from 'socket.io-client';
 import { FireCommand } from '../backend/GameRoom';
-import { EntityData, MapData, MoveKey, SetupData } from '../shared/models';
+import { EntityData, GameState, MapData, ActionKey, SetupData } from '../shared/models';
 import { GameInstance } from './GameInstance';
 // import { Socket } from 'socket.io-client';
 
@@ -19,6 +19,9 @@ export class Linker {
         this.socket.on('connect', () => {
             console.log('connected');
         });
+        this.socket.on('error', (err) => {
+            console.log(err);
+        })
         this.socket.on('setup-data', (data: SetupData) => {
             this.gameInstance.handleSetupData(data);
         });
@@ -27,11 +30,20 @@ export class Linker {
             this.gameInstance.handleMapData(data);
         });
 
+        this.socket.on('map-clear', () => {
+            this.gameInstance.handleMapClear();
+        });
+
         this.socket.on('entity-data', (data: EntityData) => {
             this.gameInstance.handleEntityData(data);
         });
 
+        this.socket.on('game-state', (state: GameState, options: any) => {
+            this.gameInstance.handleGameState(state, options);
+        });
+
         this.socket.on('c-player', (playerId: string) => {
+            // check if playerId is null and if it is, tell user room is full
             if (this.cPlayerCB) {
                 this.cPlayerCB(playerId);
                 this.cPlayerCB = null;
@@ -60,7 +72,7 @@ export class Linker {
 
     }
 
-    public setKey(playerId: string, key: MoveKey, state: boolean): void {
+    public setKey(playerId: string, key: ActionKey, state: boolean): void {
         if (state) {
             this.socket.emit(`${key}-dn`, playerId);
         }

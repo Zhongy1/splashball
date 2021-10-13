@@ -56,7 +56,11 @@ export interface PlayerProperties {
     team: Color,
 
     // cooldowns
-    lastShot: number
+    lastShot: number,
+
+    // effects
+    invulnerable: boolean,
+    paralyzed: boolean
 }
 
 export interface ProjectileProperties {
@@ -74,8 +78,8 @@ export interface ProjectileProperties {
     progress: number
 }
 
-export enum MoveKey {
-    w = 'w', a = 'a', s = 's', d = 'd'
+export enum ActionKey {
+    w = 'w', a = 'a', s = 's', d = 'd', space = ' '
 }
 
 export interface SetupData {
@@ -104,4 +108,34 @@ export interface Sprites {
     'a-tl': HTMLImageElement,
     't-red': HTMLImageElement,
     't-blue': HTMLImageElement
+}
+
+export enum GameState {
+    Waiting, Starting, Ongoing, Over, Max
+}
+
+export interface GameStateConfig {
+    spawning: SpawnMode,
+    playerState: PlayerState,
+    mapInteraction: boolean,
+    playerInteraction: boolean
+}
+
+export enum SpawnMode {
+    Center, Regional_Random, Max
+}
+
+export enum PlayerState {
+    Vulnerable, Invulnerable, Max
+}
+
+export enum TimedActionType {
+    Invulnerability, Paralysis, Max
+}
+
+export interface TimedAction {
+    type: TimedActionType,
+    startTime: number,
+    player?: PlayerProperties,
+    projectile?: ProjectileProperties
 }
