@@ -10,7 +10,9 @@ export interface PlayerOptions {
     cellStartCoord: AxialCoord,
     name: string,
     team: Color,
-    speed: number
+    speed: number,
+    invulnerable?: boolean,
+    paralyzed?: boolean
 }
 export class Player implements PlayerProperties {
     public id: string;
@@ -29,6 +31,10 @@ export class Player implements PlayerProperties {
     // cooldowns
     public lastShot: number;
 
+    // effects
+    public invulnerable: boolean;
+    public paralyzed: boolean;
+
     private w: boolean;
     private a: boolean;
     private s: boolean;
@@ -45,6 +51,8 @@ export class Player implements PlayerProperties {
         this.health = 2;
         this.team = options.team;
         this.lastShot = 0;
+        this.invulnerable = options.invulnerable || false;
+        this.paralyzed = options.paralyzed || false;
 
         this.w = this.a = this.s = this.d = this.directionChanged = false;
     }
@@ -107,7 +115,7 @@ export class Player implements PlayerProperties {
 
     public fire(): boolean {
         let time = Date.now();
-        if (time >= this.lastShot + CONFIG.ABILITY_COOLDOWN) {
+        if (!this.paralyzed && time >= this.lastShot + CONFIG.ABILITY_COOLDOWN) {
             this.lastShot = time;
             return true;
         }
@@ -117,7 +125,7 @@ export class Player implements PlayerProperties {
     }
 
     public takeDmg(projectile: ProjectileProperties): void {
-        if (this.team != projectile.team && this.gameRoom.currState == GameState.Ongoing) {
+        if (this.team != projectile.team && !this.invulnerable) {
             if (this.cellCoord.q == projectile.cellCoord.q && this.cellCoord.r == projectile.cellCoord.r) {
                 this.health -= 2;
             }
@@ -139,7 +147,7 @@ export class Player implements PlayerProperties {
         }
 
         // if moving
-        if (this.direction.x != 0 || this.direction.y != 0) {
+        if (!this.paralyzed && (this.direction.x != 0 || this.direction.y != 0)) {
             let mapRef: Map = this.gameRoom.map;
             let nextPos: CartCoord = this.predictNextPosition();
             let nextAxialPos: AxialCoord = mapRef.identifyCellCoord(nextPos);

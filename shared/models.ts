@@ -56,7 +56,11 @@ export interface PlayerProperties {
     team: Color,
 
     // cooldowns
-    lastShot: number
+    lastShot: number,
+
+    // effects
+    invulnerable: boolean,
+    paralyzed: boolean
 }
 
 export interface ProjectileProperties {
@@ -74,8 +78,8 @@ export interface ProjectileProperties {
     progress: number
 }
 
-export enum MoveKey {
-    w = 'w', a = 'a', s = 's', d = 'd'
+export enum ActionKey {
+    w = 'w', a = 'a', s = 's', d = 'd', space = ' '
 }
 
 export interface SetupData {
@@ -123,4 +127,15 @@ export enum SpawnMode {
 
 export enum PlayerState {
     Vulnerable, Invulnerable, Max
+}
+
+export enum TimedActionType {
+    Invulnerability, Paralysis, Max
+}
+
+export interface TimedAction {
+    type: TimedActionType,
+    startTime: number,
+    player?: PlayerProperties,
+    projectile?: ProjectileProperties
 }

@@ -1,7 +1,7 @@
 import { ClientComponents } from ".";
 import { Calculator } from "../shared/Calculator";
 import { CONFIG } from "../shared/config";
-import { AxialCoord, CartCoord, Color, EntityData, GameState, HexCell, HexCellMod, MapData, MapProperties, MoveKey, PlayerProperties, ProjectileProperties, SetupData, Sprites, TeamColors } from "../shared/models";
+import { ActionKey, AxialCoord, CartCoord, Color, EntityData, GameState, HexCell, HexCellMod, MapData, MapProperties, PlayerProperties, ProjectileProperties, SetupData, Sprites, TeamColors } from "../shared/models";
 import { Linker } from "./Linker";
 
 
@@ -20,6 +20,9 @@ export class GameInstance {
 
     private renderer: GameRenderer;
     private fps: number;
+
+    private x: number;
+    private y: number;
     // private ctx: CanvasRenderingContext2D;
 
     constructor(private gameCanvas: HTMLCanvasElement, private clientComponents: ClientComponents) {
@@ -99,7 +102,7 @@ export class GameInstance {
     }
 
     private updatePlayer(player: PlayerProperties) {
-        if (player.direction.x != 0 || player.direction.y != 0) {
+        if (!player.paralyzed && (player.direction.x != 0 || player.direction.y != 0)) {
             let nextPos: CartCoord = this.predictNextPosition(player);
             let nextAxialPos: AxialCoord = Calculator.pixelToFlatHex(player.coord, CONFIG.EDGE_LENGTH);
 
@@ -174,33 +177,42 @@ export class GameInstance {
                 login(username);
             }
         });
-        let isDownW, isDownA, isDownS, isDownD;
-        isDownW = isDownA = isDownS = isDownD = false;
+        let isDownW, isDownA, isDownS, isDownD, isDownSpace;
+        isDownW = isDownA = isDownS = isDownD = isDownSpace = false;
         document.body.addEventListener('keydown', (e) => {
             if (this.playerId) {
                 switch (e.key) {
-                    case 'w': {
+                    case ActionKey.w: {
                         if (isDownW) return;
                         isDownW = true;
-                        this.linker.setKey(this.playerId, MoveKey.w, true);
+                        this.linker.setKey(this.playerId, ActionKey.w, true);
                         break;
                     }
-                    case 'a': {
+                    case ActionKey.a: {
                         if (isDownA) return;
                         isDownA = true;
-                        this.linker.setKey(this.playerId, MoveKey.a, true);
+                        this.linker.setKey(this.playerId, ActionKey.a, true);
                         break;
                     }
-                    case 's': {
+                    case ActionKey.s: {
                         if (isDownS) return;
                         isDownS = true;
-                        this.linker.setKey(this.playerId, MoveKey.s, true);
+                        this.linker.setKey(this.playerId, ActionKey.s, true);
                         break;
                     }
-                    case 'd': {
+                    case ActionKey.d: {
                         if (isDownD) return;
                         isDownD = true;
-                        this.linker.setKey(this.playerId, MoveKey.d, true);
+                        this.linker.setKey(this.playerId, ActionKey.d, true);
+                        break;
+                    }
+                    case ActionKey.space: {
+                        if (isDownSpace) return;
+                        isDownSpace = true;
+                        // this.linker.setKey(this.playerId, ActionKey.space, true);
+                        if (this.x != undefined && this.y != undefined) {
+                            this.doAttack(this.x, this.y);
+                        }
                         break;
                     }
                 }
@@ -209,53 +221,41 @@ export class GameInstance {
         document.body.addEventListener('keyup', (e) => {
             if (this.playerId) {
                 switch (e.key) {
-                    case 'w': {
+                    case ActionKey.w: {
                         isDownW = false;
-                        this.linker.setKey(this.playerId, MoveKey.w, false);
+                        this.linker.setKey(this.playerId, ActionKey.w, false);
                         break;
                     }
-                    case 'a': {
+                    case ActionKey.a: {
                         isDownA = false;
-                        this.linker.setKey(this.playerId, MoveKey.a, false);
+                        this.linker.setKey(this.playerId, ActionKey.a, false);
                         break;
                     }
-                    case 's': {
+                    case ActionKey.s: {
                         isDownS = false;
-                        this.linker.setKey(this.playerId, MoveKey.s, false);
+                        this.linker.setKey(this.playerId, ActionKey.s, false);
                         break;
                     }
-                    case 'd': {
+                    case ActionKey.d: {
                         isDownD = false;
-                        this.linker.setKey(this.playerId, MoveKey.d, false);
+                        this.linker.setKey(this.playerId, ActionKey.d, false);
+                        break;
+                    }
+                    case ActionKey.space: {
+                        isDownSpace = false;
+                        // this.linker.setKey(this.playerId, ActionKey.space, false);
                         break;
                     }
                 }
             }
         });
         document.body.addEventListener('click', (e) => {
-            let selection: CartCoord = {
-                x: e.offsetX - window.innerWidth / 2,
-                y: e.offsetY - window.innerHeight / 2
-            }
-            let coordTransformed: CartCoord = {
-                x: this.myPlayer.coord.x,
-                y: this.myPlayer.coord.y
-            }
-            Calculator.rotateX(coordTransformed, -CONFIG.MAP_VIEW_ANGLE);
-            // let selection: CartCoord = {
-            //     x: e.offsetX - window.innerWidth / 2 + this.myPlayer.coord.x,
-            //     y: e.offsetY - window.innerHeight / 2 + this.myPlayer.coord.y
-            // }
-            selection.x += coordTransformed.x;
-            selection.y += coordTransformed.y;
-            selection.z = Calculator.calcZofPoint(selection, CONFIG.MAP_VIEW_ANGLE);
-            Calculator.rotateX(selection, -CONFIG.MAP_VIEW_ANGLE);
-            let axialSelection: AxialCoord = Calculator.pixelToFlatHex(selection, CONFIG.EDGE_LENGTH);
-            // if (this.map.checkCellExists(options.target) && Calculator.calcCellDistance(options.target, player.cellCoord) <= CONFIG.ATTACK_RANGE)
-            this.linker.attack({
-                id: this.playerId,
-                target: axialSelection
-            });
+            if (!this.playerId) return;
+            this.doAttack(e.offsetX, e.offsetY);
+        });
+        document.body.addEventListener('mousemove', (e) => {
+            this.x = e.offsetX;
+            this.y = e.offsetY;
         });
     }
 
@@ -297,6 +297,7 @@ export class GameInstance {
     }
 
     public handleGameState(state: GameState, options: any): void {
+        this.currState = state;
         switch (state) {
             case GameState.Waiting:
                 //hide timer panel
@@ -304,10 +305,22 @@ export class GameInstance {
                 break;
             case GameState.Starting:
                 //start timer
+                let t1 = Math.ceil(CONFIG.GAME_START_TIME / 1000);
                 document.getElementById('timer-panel').children[0].innerHTML = 'Starting...';
-                document.getElementById('timer-panel').children[1].innerHTML = '5';
+                document.getElementById('timer-panel').children[1].innerHTML = `${t1}`;
                 //show timer panel
                 document.getElementById('timer-panel').classList.remove('hidden');
+                let int1 = setInterval(() => {
+                    if (this.currState != GameState.Starting) {
+                        clearInterval(int1);
+                        return;
+                    }
+                    t1--;
+                    document.getElementById('timer-panel').children[1].innerHTML = t1.toString();
+                    if (t1 <= 0) {
+                        clearInterval(int1);
+                    }
+                }, 1000);
                 break;
             case GameState.Ongoing:
                 //hide timer panel
@@ -315,13 +328,51 @@ export class GameInstance {
                 break;
             case GameState.Over:
                 //start timer
+                let t2 = Math.ceil(CONFIG.GAME_OVER_TIME / 1000);
                 //change messaage
                 document.getElementById('timer-panel').children[0].innerHTML = `Winner: ${options.winningTeam == 1 ? 'Red' : 'Blue'} Team`;
-                document.getElementById('timer-panel').children[1].innerHTML = '5';
+                document.getElementById('timer-panel').children[1].innerHTML = `${t2}`;
                 //show timer panel
                 document.getElementById('timer-panel').classList.remove('hidden');
+                let int2 = setInterval(() => {
+                    if (this.currState != GameState.Over) {
+                        clearInterval(int2);
+                        return;
+                    }
+                    t2--;
+                    document.getElementById('timer-panel').children[1].innerHTML = t2.toString();
+                    if (t2 <= 0) {
+                        clearInterval(int2);
+                    }
+                }, 1000);
                 break;
         }
+    }
+
+    public doAttack(x: number, y: number) {
+        let selection: CartCoord = {
+            x: x - window.innerWidth / 2,
+            y: y - window.innerHeight / 2
+        }
+        let coordTransformed: CartCoord = {
+            x: this.myPlayer.coord.x,
+            y: this.myPlayer.coord.y
+        }
+        Calculator.rotateX(coordTransformed, -CONFIG.MAP_VIEW_ANGLE);
+        // let selection: CartCoord = {
+        //     x: e.offsetX - window.innerWidth / 2 + this.myPlayer.coord.x,
+        //     y: e.offsetY - window.innerHeight / 2 + this.myPlayer.coord.y
+        // }
+        selection.x += coordTransformed.x;
+        selection.y += coordTransformed.y;
+        selection.z = Calculator.calcZofPoint(selection, CONFIG.MAP_VIEW_ANGLE);
+        Calculator.rotateX(selection, -CONFIG.MAP_VIEW_ANGLE);
+        let axialSelection: AxialCoord = Calculator.pixelToFlatHex(selection, CONFIG.EDGE_LENGTH);
+        // if (this.map.checkCellExists(options.target) && Calculator.calcCellDistance(options.target, player.cellCoord) <= CONFIG.ATTACK_RANGE)
+        this.linker.attack({
+            id: this.playerId,
+            target: axialSelection
+        });
     }
 }
 
@@ -343,7 +394,6 @@ export class GameRenderer {
         this.mapCanvas = document.createElement('canvas');
         this.mapCtx = this.mapCanvas.getContext('2d');
         this.mapWidth = (CONFIG.RING_COUNT * 2 + 1) * CONFIG.EDGE_LENGTH * Math.sqrt(3) + 10;
-        console.log(this.mapWidth);
         this.mapCanvas.width = this.mapWidth;
         this.mapCanvas.height = this.mapWidth;
         // document.body.appendChild(this.mapCanvas);
@@ -399,7 +449,6 @@ export class GameRenderer {
             this.mapCtx.lineTo(coordTransformed.x + point.x + this.mapWidth / 2, coordTransformed.y + point.y + this.mapWidth / 2);
         });
         this.mapCtx.lineTo(coordTransformed.x + this.hexCornerPoints[0].x + this.mapWidth / 2, coordTransformed.y + this.hexCornerPoints[0].y + this.mapWidth / 2);
-        this.mapCtx.stroke();
         if (clear) {
             this.mapCtx.fillStyle = 'black';
             this.mapCtx.fill();
@@ -418,6 +467,7 @@ export class GameRenderer {
                 }
             }
         }
+        this.mapCtx.stroke();
     }
 
     public generateMap(grid: { [index: string]: { [index: string]: HexCell } }, clearMap?: boolean) {
@@ -487,9 +537,24 @@ export class GameRenderer {
             y: coordTransformed.y + window.innerHeight / 2
         }
 
-        // draw player model
-        // this.mainCtx.fillRect(center.x - 10, center.y - 10, 20, 20);
-        this.mainCtx.drawImage(this.sprites['t-' + TeamColors[player.team]], center.x - 15, center.y - 15, 30, 30);
+        // draw player model; handle invulneravility visual effect
+        if (player.invulnerable) {
+            let t = Date.now();
+            let tms = t % 800;
+            if (Math.floor(t / 800) % 2 == 0) {
+                this.mainCtx.globalAlpha = tms / 800;
+                this.mainCtx.drawImage(this.sprites['t-' + TeamColors[player.team]], center.x - 15, center.y - 15, 30, 30);
+                this.mainCtx.globalAlpha = 1;
+            }
+            else {
+                this.mainCtx.globalAlpha = 1 - tms / 800;
+                this.mainCtx.drawImage(this.sprites['t-' + TeamColors[player.team]], center.x - 15, center.y - 15, 30, 30);
+                this.mainCtx.globalAlpha = 1;
+            }
+        }
+        else {
+            this.mainCtx.drawImage(this.sprites['t-' + TeamColors[player.team]], center.x - 15, center.y - 15, 30, 30);
+        }
 
         //draw arrows
         let dir: string = 'b';

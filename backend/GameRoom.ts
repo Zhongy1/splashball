@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { MapProperties, PlayerProperties, ProjectileProperties, CartCoord, AxialCoord, DirectionVector, Color, HexCell, Vector, HexCellMod, MoveKey, GameState, GameStateConfig, SpawnMode, PlayerState } from '../shared/models';
+import { MapProperties, PlayerProperties, ProjectileProperties, CartCoord, AxialCoord, DirectionVector, Color, HexCell, Vector, HexCellMod, ActionKey, GameState, GameStateConfig, SpawnMode, PlayerState, TimedAction, TimedActionType } from '../shared/models';
 import { CONFIG } from '../shared/config';
 import { Broker } from './Broker';
 import { Calculator } from '../shared/Calculator';
@@ -21,6 +21,7 @@ export class GameRoom {
 
     private outgoingCellMods: HexCellMod[];
     private incomingAttackCmds: FireCommand[];
+    private timedActions: { [key: string]: TimedAction[] };
 
     public currState: GameState;
     private stateConfig: GameStateConfig;
@@ -29,10 +30,8 @@ export class GameRoom {
     private currPlayers: number;
     private timer: Timer;
 
-    private gameLoop;
     private broker: Broker;
 
-    private frameRate: number;
     private previousTick: number;
 
     constructor() {
@@ -57,8 +56,8 @@ export class GameRoom {
 
         this.outgoingCellMods = [];
         this.incomingAttackCmds = [];
+        this.timedActions = {};
 
-        this.frameRate = Math.round(1000 / CONFIG.GAME_INTERVAL);
         this.previousTick = 0;
     }
 
@@ -125,7 +124,7 @@ export class GameRoom {
                     this.stateConfig.playerInteraction = true;
                     this.map.clearMap();
                     this.broker.handleMapClear();
-                    // clear projectiles
+                    this.clearProjectiles();
                     this.relocatePlayers();
                     this.currState = GameState.Ongoing;
                 }
@@ -188,9 +187,11 @@ export class GameRoom {
                 projectile.updateState();
                 if (projectile.progress == 1) {
                     // interact with players
-                    for (let playerId of playerIds) { // looping through all players is inefficient
-                        if (this.players.hasOwnProperty(playerId)) {
-                            this.players[playerId].takeDmg(projectile);
+                    if (this.currState == GameState.Ongoing) { // Player interactions only while game is ongoing
+                        for (let playerId of playerIds) { // looping through all players is inefficient
+                            if (this.players.hasOwnProperty(playerId)) {
+                                this.players[playerId].takeDmg(projectile);
+                            }
                         }
                     }
                     // interact with map
@@ -220,12 +221,52 @@ export class GameRoom {
         this.broker.handleEntityData(this.players, this.projectiles);
     }
 
+    private checkTimedActions(t: number): void {
+        let playerIds = Object.keys(this.timedActions);
+        for (let playerId of playerIds) {
+            if (this.timedActions.hasOwnProperty(playerId)) {
+                let actions = this.timedActions[playerId];
+                let i = 0;
+                while (i < actions.length) {
+                    let a = actions[i];
+                    switch (a.type) {
+                        case TimedActionType.Invulnerability:
+                            if (t - a.startTime > CONFIG.SPAWN_SHIELD_DURATION) {
+                                if (this.players.hasOwnProperty(playerId)) {
+                                    this.players[playerId].invulnerable = false;
+                                }
+                                actions.splice(i, 1);
+                            }
+                            else i++;
+                            break;
+                        case TimedActionType.Paralysis:
+                            if (t - a.startTime > CONFIG.TEAM_CHANGE_PARALYSIS) {
+                                if (this.players.hasOwnProperty(playerId)) {
+                                    this.players[playerId].paralyzed = false;
+                                }
+                                actions.splice(i, 1);
+                            }
+                            else i++;
+                            break;
+                        default:
+                            actions.splice(i, 1);
+                            break;
+                    }
+                }
+                if (actions.length == 0) {
+                    delete this.timedActions[playerId];
+                }
+            }
+        }
+    }
+
     private doGameLoop(): void {
         let now = Date.now();
 
         if (this.previousTick + CONFIG.GAME_INTERVAL <= now) {
             this.previousTick = now;
 
+            this.checkTimedActions(now);
             this.doGameIteration();
         }
 
@@ -247,9 +288,22 @@ export class GameRoom {
             name: username,
             // team: (username.length % 2 == 0) ? Color.red : Color.blue,
             team: teamColor,
-            speed: CONFIG.MOVE_SPEED
+            speed: CONFIG.MOVE_SPEED,
+            invulnerable: (this.currState == GameState.Ongoing) ? true : false
         }, this);
         this.players[player.id] = player;
+        if (!this.timedActions.hasOwnProperty(player.id)) {
+            this.timedActions[player.id] = [{
+                type: TimedActionType.Invulnerability,
+                startTime: Date.now()
+            }];
+        }
+        else {
+            this.timedActions[player.id].push({
+                type: TimedActionType.Invulnerability,
+                startTime: Date.now()
+            });
+        }
         this.teamCurrSizes[player.team]++;
         this.currPlayers++;
         return player;
@@ -264,20 +318,23 @@ export class GameRoom {
         }
     }
 
-    public setKey(playerId: string, key: MoveKey, state: boolean): void {
+    public setKey(playerId: string, key: ActionKey, state: boolean): void {
         if (this.players.hasOwnProperty(playerId)) {
             switch (key) {
-                case MoveKey.w:
+                case ActionKey.w:
                     this.players[playerId].setW(state);
                     break;
-                case MoveKey.a:
+                case ActionKey.a:
                     this.players[playerId].setA(state);
                     break;
-                case MoveKey.s:
+                case ActionKey.s:
                     this.players[playerId].setS(state);
                     break;
-                case MoveKey.d:
+                case ActionKey.d:
                     this.players[playerId].setD(state);
+                    break;
+                case ActionKey.space:
+                    // console.log('backend space key received');
                     break;
             }
         }
@@ -349,6 +406,30 @@ export class GameRoom {
         if (typeof playerIdObj === 'string') {
             playerIdObj = this.players[playerIdObj];
         }
+        playerIdObj.paralyzed = true;
+        if (!this.timedActions.hasOwnProperty(playerIdObj.id)) {
+            this.timedActions[playerIdObj.id] = [{
+                type: TimedActionType.Paralysis,
+                startTime: Date.now()
+            }];
+        }
+        else {
+            let tA = this.timedActions[playerIdObj.id];
+            let set = false;
+            for (let i = 0; i < tA.length; i++) {
+                if (tA[i].type == TimedActionType.Paralysis) {
+                    tA[i].startTime = Date.now();
+                    set = true;
+                    break;
+                }
+            }
+            if (!set) {
+                this.timedActions[playerIdObj.id].push({
+                    type: TimedActionType.Paralysis,
+                    startTime: Date.now()
+                });
+            }
+        }
         this.teamCurrSizes[playerIdObj.team]--;
         playerIdObj.team = team;
         this.teamCurrSizes[playerIdObj.team]++;
@@ -394,6 +475,14 @@ export class GameRoom {
                     player.setNewLocation({ q: q, r: r });
                     break;
                 }
+            }
+        });
+    }
+
+    private clearProjectiles(): void {
+        Object.keys(this.projectiles).forEach((projId) => {
+            if (this.projectiles.hasOwnProperty(projId)) {
+                delete this.projectiles[projId];
             }
         });
     }
