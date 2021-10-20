@@ -1,5 +1,10 @@
 
 
+export interface GameRoomOption {
+    name: string,
+    endpoint: string
+}
+
 export interface AxialCoord {
     q: number,
     r: number
@@ -83,6 +88,7 @@ export enum ActionKey {
 }
 
 export interface SetupData {
+    state: GameState,
     map: MapProperties,
     players: PlayerProperties[],
     projectiles: ProjectileProperties[]

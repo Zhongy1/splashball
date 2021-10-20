@@ -39,7 +39,7 @@ export class Linker {
 
     private initListeners() {
         this.socket.on('connect', () => {
-            console.log(`Connect to ${this.path}`);
+            console.log(`Connected to ${this.path}`);
             if (this.cIOCB) {
                 this.cIOCB();
             }

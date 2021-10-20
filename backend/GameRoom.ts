@@ -72,34 +72,28 @@ export class GameRoom {
             case GameState.Waiting:
                 if (this.currPlayers >= CONFIG.MIN_PLAYERS) {
                     this.handleGameTransition(GameState.Starting);
-                    this.handleGameState();
                 }
                 break;
             case GameState.Starting:
                 if (this.currPlayers < CONFIG.MIN_PLAYERS) {
                     this.handleGameTransition(GameState.Starting);
-                    this.handleGameState();
                 }
                 else if (this.timer.getElapsed() >= CONFIG.GAME_START_TIME) {
                     this.handleGameTransition(GameState.Ongoing);
-                    this.handleGameState();
                 }
                 break;
             case GameState.Ongoing:
                 if (this.checkOneTeamRemaining()) {
                     this.handleGameTransition(GameState.Over);
-                    this.handleGameState();
                 }
                 break;
             case GameState.Over:
                 if (this.timer.getElapsed() >= CONFIG.GAME_OVER_TIME) {
                     if (this.currPlayers < CONFIG.MIN_PLAYERS) {
                         this.handleGameTransition(GameState.Waiting);
-                        this.handleGameState();
                     }
                     else {
                         this.handleGameTransition(GameState.Starting);
-                        this.handleGameState();
                     }
                 }
                 break;

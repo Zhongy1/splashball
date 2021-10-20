@@ -12,7 +12,7 @@ export const CONFIG = {
     PROJ_LAUNCH_HEIGHT: 40,
 
     GAME_INTERVAL: 50, //milliseconds
-
+    NUM_GAME_ROOMS: 3,
 
     // Mars: 3.711
     // Moon: 1.62

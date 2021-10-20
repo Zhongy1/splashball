@@ -23,6 +23,7 @@ export class Broker {
             grid: this.gameRoom.map.grid
         }
         let ret: SetupData = {
+            state: this.gameRoom.currState,
             map: mapProps,
             players: [],
             projectiles: []
