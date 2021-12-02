@@ -437,12 +437,12 @@ export class GameRoom {
             case GameState.Ongoing:
             case GameState.Over:
                 if (team == Color.red) {
-                    let q = -(Math.floor(Math.random() * 10 + 1));
+                    let q = -(Math.floor(Math.random() * CONFIG.RING_COUNT + 1));
                     let max = CONFIG.RING_COUNT - Math.abs(q);
                     return { q: q, r: -Math.round(Math.random() * (max + CONFIG.RING_COUNT)) + CONFIG.RING_COUNT }
                 }
                 else if (team == Color.blue) {
-                    let q = Math.floor(Math.random() * 10 + 1);
+                    let q = Math.floor(Math.random() * CONFIG.RING_COUNT + 1);
                     let max = CONFIG.RING_COUNT - Math.abs(q);
                     return { q: q, r: Math.round(Math.random() * (max + CONFIG.RING_COUNT)) - CONFIG.RING_COUNT }
                 }
@@ -456,14 +456,14 @@ export class GameRoom {
             let player = this.players[playerId];
             switch (player.team) {
                 case Color.red: {
-                    let q = -(Math.floor(Math.random() * 10 + 1));
+                    let q = -(Math.floor(Math.random() * CONFIG.RING_COUNT + 1));
                     let max = CONFIG.RING_COUNT - Math.abs(q);
                     let r = -Math.round(Math.random() * (max + CONFIG.RING_COUNT)) + CONFIG.RING_COUNT;
                     player.setNewLocation({ q: q, r: r });
                     break;
                 }
                 case Color.blue: {
-                    let q = Math.floor(Math.random() * 10 + 1);
+                    let q = Math.floor(Math.random() * CONFIG.RING_COUNT + 1);
                     let max = CONFIG.RING_COUNT - Math.abs(q);
                     let r = Math.round(Math.random() * (max + CONFIG.RING_COUNT)) - CONFIG.RING_COUNT;
                     player.setNewLocation({ q: q, r: r });

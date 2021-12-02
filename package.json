@@ -1,5 +1,5 @@
 {
-  "name": "paintball",
+  "name": "splashball",
   "version": "1.0.0",
   "description": "",
   "main": "public/index.js",
@@ -11,7 +11,8 @@
   "scripts": {
     "frontend.dev": "parcel watch frontend/index.ts --no-source-maps",
     "frontend.build": "parcel build frontend/index.ts --no-source-maps",
-    "server": "ts-node server"
+    "server": "ts-node server",
+    "clean-start": "npm run frontend.build; npm run server"
   },
   "repository": {
     "type": "git",
@@ -37,6 +38,6 @@
     "uuid": "^8.3.1"
   },
   "devDependencies": {
-    "parcel": "^2.0.0-rc.0"
+    "parcel": "^2.0.1"
   }
 }

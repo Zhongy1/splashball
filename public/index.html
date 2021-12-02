@@ -10,11 +10,32 @@
 <body>
     <canvas id='game' width='100' height='100'></canvas>
     <div class='entry-screen'>
-        <div class="login-components">
-            <input class='username' id='username' type="text"><button id='submit'>Play</button>
-            <select class="room-selector" name="menu" id="menu" disabled></select>
-
+        <div class='spacer'></div>
+        <div class='login-components'>
+            <div class='game-title'>Splashball</div>
+            <input class='username' id='username' type='text'><button id='submit'>Join</button>
+            <select class='room-selector' name='menu' id='menu' disabled></select>
         </div>
+        <div class='info-area'>
+            <div class='info-container'>
+                <img src='info1.png'>
+                <div class='label'>Join the game and spawn in a random location</div>
+            </div>
+            <div class='info-container'>
+                <img src='info2.png'>
+                <div class='label'>Move with WASD and shoot with mouse click</div>
+            </div>
+            <div class='info-container'>
+                <img src='info3.png'>
+                <div class='label'>Convert players onto your team with a direct hit</div>
+            </div>
+            <div class='info-container'>
+                <img src='info4.png'>
+                <div class='label'>Win by coverting everyone onto your team</div>
+            </div>
+        </div>
+        <div class='repo-link'>Source code: <a href="https://github.com/Zhongy1/paintball"
+                target="_blank">Zhongy1/paintpall</a></div>
     </div>
     <div id='timer-panel' class='hidden'>
         <div class='message'></div>

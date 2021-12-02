@@ -115,7 +115,7 @@ export class Player implements PlayerProperties {
 
     public fire(): boolean {
         let time = Date.now();
-        if (!this.paralyzed && time >= this.lastShot + CONFIG.ABILITY_COOLDOWN) {
+        if (!this.invulnerable && !this.paralyzed && time >= this.lastShot + CONFIG.ABILITY_COOLDOWN) {
             this.lastShot = time;
             return true;
         }

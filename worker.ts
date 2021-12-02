@@ -25,5 +25,5 @@ const broker: Broker = new Broker(httpServer, gameRoom);
 gameRoom.start(broker);
 
 httpServer.listen(port, () => {
-    console.log(`\x1b[32m\x1b[1m[Worker]\x1b[0m Game room spawned on port ${port}`);
+    console.log(`\x1b[32m\x1b[1m[Worker]\x1b[0m Game room created on port ${port}`);
 });

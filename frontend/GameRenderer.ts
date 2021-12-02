@@ -176,14 +176,14 @@ export class GameRenderer {
         // draw player model; handle invulneravility visual effect
         if (player.invulnerable) {
             let t = Date.now();
-            let tms = t % 800;
-            if (Math.floor(t / 800) % 2 == 0) {
-                this.mainCtx.globalAlpha = tms / 800;
+            let tms = t % (CONFIG.SPAWN_SHIELD_DURATION / 5);
+            if (Math.floor(t / (CONFIG.SPAWN_SHIELD_DURATION / 5)) % 2 == 0) {
+                this.mainCtx.globalAlpha = tms / (CONFIG.SPAWN_SHIELD_DURATION / 5);
                 this.mainCtx.drawImage(this.sprites['t-' + TeamColors[player.team]], center.x - 15, center.y - 15, 30, 30);
                 this.mainCtx.globalAlpha = 1;
             }
             else {
-                this.mainCtx.globalAlpha = 1 - tms / 800;
+                this.mainCtx.globalAlpha = 1 - tms / (CONFIG.SPAWN_SHIELD_DURATION / 5);
                 this.mainCtx.drawImage(this.sprites['t-' + TeamColors[player.team]], center.x - 15, center.y - 15, 30, 30);
                 this.mainCtx.globalAlpha = 1;
             }
