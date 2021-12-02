@@ -1,0 +1,161 @@
+body {
+    margin: 0px;
+    overflow: hidden;
+    font-family: Verdana;
+    min-width: 1000px;
+    position: relative;
+}
+
+canvas {
+    display: block;
+    background-color: black;
+}
+
+.entry-screen {
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    width: 100%;
+    height: 100vh;
+    background-color: black;
+    transition: top 1s;
+}
+
+.entry-screen.hidden {
+    top: 100%;
+}
+
+.room-selector {
+    width: 100%;
+    height: 40px;
+    background-color: turquoise;
+    text-align: center;
+    border: 1px solid black;
+    box-sizing: border-box;
+    border-radius: 5px;
+    padding: 0px 0px 0px 10px;
+    font-size: 20px;
+}
+
+.room-selector > option{
+    width: 50px;
+}
+
+.game-title {
+    color: white;
+    height: 65px;
+    text-align: center;
+    font-size: 48px;
+}
+
+.username {
+    width: 315px;
+    height: 50px;
+    font-size: 60px;
+    margin: 0px 15px 10px 0px;
+    text-align: center;
+    float: left;
+    display: block;
+    box-sizing: border-box;
+    border-radius: 10px;
+    border: 2px solid gray;
+}
+
+#submit {
+    width: 70px;
+    height: 50px;
+    display: block;
+    float: left;
+    margin: 0px 0px 10px;
+    font-size: 25px;
+    font-weight: 700;
+    background-color: sienna;
+    border-radius: 10px;
+    padding: 0px;
+    border-width: 2px;
+    border-color: gray;
+    border-style: outset;
+}
+
+.spacer {
+    height: 15%;
+}
+
+.login-components {
+    width: 400px;
+    margin: 0px auto 0pc auto;
+    position: relative;
+    z-index: 2;
+}
+
+.info-area {
+    position: absolute;
+    bottom: 0px;
+    width: 100%;
+    height: 60%;
+    z-index: 1;
+}
+
+.info-container {
+    width: 50%;
+    height: 50%;
+    float: left;
+    display: flex;
+    justify-content: center;
+}
+.info-container > img {
+    display: block;
+    height: 100%;
+}
+.info-container > .label {
+    overflow: hidden;
+    height: 100%;
+    color: white;
+    box-sizing: border-box;
+    padding: 70px 20px;
+    text-align: center;
+    word-break: break-word;
+    width: 180px;
+}
+
+.repo-link {
+    position: absolute;
+    top: 0px;
+    right: 0px;
+    color: white;
+    box-sizing: border-box;
+    padding: 10px;
+}
+.repo-link > a:link,
+.repo-link > a:visited,
+.repo-link > a:hover,
+.repo-link > a:active {
+  text-decoration: none; 
+  color: white;
+}
+
+#timer-panel {
+    position: absolute;
+    top: 0px;
+    right: 0px;
+    width: 250px;
+    height: 60px;
+    background-color: #00000080;
+    color: white;
+    padding: 10px;
+}
+#timer-panel.hidden {
+    display: none;
+}
+#timer-panel>.message {
+    width: 100%;
+    height: 25px;
+    text-align: center;
+    font-size: 25px;
+}
+#timer-panel>.timer {
+    width: 100%;
+    height: 35px;
+    text-align: center;
+    font-size: 35px;
+}

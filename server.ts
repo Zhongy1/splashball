@@ -1,46 +1,53 @@
 
 import * as express from 'express';
+import { createProxyMiddleware } from 'http-proxy-middleware';
 import * as http from 'http';
-import * as socketio from 'socket.io';
 import * as serveStatic from 'serve-static';
 import * as path from 'path';
-import * as util from 'util';
-import { Temp } from './temp';
-import { Broker } from './backend/Broker';
-import { GameRoom } from './backend/GameRoom';
+// import { Broker } from './backend/Broker';
+// import { GameRoom } from './backend/GameRoom';
+import { spawn, fork } from 'child_process';
+import { CONFIG } from './shared/config';
+import { GameRoomOption } from './shared/models';
 
+let gameRoomOptions: GameRoomOption[] = [];
+for (let i = 1; i <= CONFIG.NUM_GAME_ROOMS; i++) {
+    gameRoomOptions.push({
+        name: `Game Room ${i}`,
+        endpoint: `gr-${i}`
+    });
+}
 
 const app = express();
 const httpServer = http.createServer(app);
-// const io = socketio(httpServer, {
-//     pingTimeout: 10000
-// });
 
 
 app.use(serveStatic(path.resolve(__dirname, 'public')));
+app.get('/game-rooms', (req, res) => res.json(gameRoomOptions));
 
 
-const gameRoom: GameRoom = new GameRoom();
-const broker: Broker = new Broker(httpServer, gameRoom);
+let port = 3000;
+if (process.argv.includes('-p')) {
+    let tempPort: number = Number(process.argv[process.argv.indexOf('-p') + 1]);
+    if (!isNaN(tempPort)) {
+        port = tempPort;
+    }
+}
 
-
-httpServer.listen(3000, () => {
-    console.log(`Server ready`);
+httpServer.listen(port, () => {
+    console.log(`\x1b[34m\x1b[1m[Master]\x1b[0m Http server started on port ${port}`);
+    spawnWorkers(CONFIG.NUM_GAME_ROOMS);
 });
 
-// var temp = new Temp();
+function spawnWorkers(num: Number): void {
+    for (let i = 0; i < num; i++) {
+        let p = port + i + 1;
+        let worker = fork('worker.ts', ['-p', `${p}`]);
 
-
-// io.on('connection', (socket) => {
-//     console.log('got connection');
-//     socket.on('test-send-1', (data) => {
-//         console.log(data);
-//     });
-//     socket.emit('init-connection', temp.data);
-// });
-
-
-
-// setInterval(() => {
-//     io.sockets.emit('test-msg-1', 'foo');
-// }, 3000);
+        app.use(`/gr-${i + 1}`, createProxyMiddleware(`/gr-${i + 1}`, {
+            target: `http://localhost:${p}`,
+            ws: true,
+            logLevel: 'silent'
+        }));
+    }
+}

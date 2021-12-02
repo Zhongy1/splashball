@@ -3,3 +3,6 @@
 /node_modules/
 .cache/
 public/index.js
+.parcel-cache/
+test-files/
+screenshots/
