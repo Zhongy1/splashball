@@ -1,0 +1,8 @@
+node_modules
+.git
+diagrams
+.DS_Store
+.cache
+.parcel-cache
+test-files
+screenshots
